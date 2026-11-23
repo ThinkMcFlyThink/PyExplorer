@@ -1,0 +1,10 @@
+# Required
+PySide6>=6.5        # Qt 6 for Python: the user interface
+pyte>=0.8           # terminal emulator used by the F4 terminal pane
+
+# Optional - install the ones you want
+smbprotocol>=1.13   # SMB / Samba / Windows shares (TrueNAS, Synology, QNAP, Windows PCs)
+paramiko>=3.0       # SFTP network locations (servers over SSH)
+keyring>=24         # remembered network logins go in your system keyring (GNOME Keyring / KWallet / Windows / macOS)
+send2trash>=1.8    # most reliable "move to trash" on every OS (built-in fallbacks exist)
+pywinpty>=2.0; sys_platform == "win32"   # Windows: a full terminal (cmd/PowerShell) in the F4 pane
