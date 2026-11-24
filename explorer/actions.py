@@ -180,6 +180,7 @@ def register_all(reg: ActionRegistry, ctx) -> None:
     reg.add("edit.filter", "Filter this folder", c.toggle_filter, "Ctrl+I", i("view-filter"))
     reg.add("edit.search", "Search…", lambda: c.open_search(), "Ctrl+F", ctx.icons.symbol("search", force=True))
     reg.add("tools.rename", "Bulk rename…", lambda: c.open_rename(), "Ctrl+F2", ctx.icons.symbol("rename", force=True))
+    reg.add("tools.transfers", "Transfers…", c.open_transfers, "Ctrl+J", ctx.icons.symbol("transfer", force=True))
     reg.add("tools.history", "History…", c.open_history, "Ctrl+H", ctx.icons.symbol("history", force=True))
     reg.add("edit.copy_other", "Copy to other panel", lambda: c.transfer_to_other_panel(move=False), "Shift+F5",
             files_only=True)

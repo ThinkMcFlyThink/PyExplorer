@@ -59,6 +59,11 @@ class TabBar(QTabBar):
             tint = QColor(accent)
             tint.setAlphaF(0.22 if i == self.currentIndex() else 0.13)
             painter.fillRect(rect.adjusted(0, 0, -1, 0), tint)
+            progress = getattr(tabs.widget(i), "progress", None)       # e.g. the Transfers tab while copying
+            if progress is not None:
+                done = QColor(accent)
+                done.setAlphaF(0.38)
+                painter.fillRect(QRect(rect.left(), rect.top(), int((rect.width() - 1) * progress), rect.height()), done)
             painter.fillRect(QRect(rect.left(), rect.top(), 3, rect.height()), accent)
         if painter is not None:
             painter.end()

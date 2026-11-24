@@ -156,7 +156,12 @@ class MainWindow(QMainWindow):
         self.ctx.settings.set("window.geometry", _b64(self.saveGeometry()))
         self.ctx.settings.set("window.state", _b64(self.saveState()))
 
+    confirm_close = None          # set by app.py: e.g. "transfers are running - quit anyway?"
+
     def closeEvent(self, event) -> None:
+        if self.confirm_close is not None and not self.confirm_close():
+            event.ignore()
+            return
         try:
             self.save_window_state()
             if self.on_exit:

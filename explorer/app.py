@@ -23,6 +23,7 @@ from .core.clipboard import FileClipboard
 from .core.connections import Connections
 from .core.events import EventBus, Topics
 from .core.file_history import FileHistory
+from .core.transfer_model import TransferLog
 from .core.folder_colors import FolderColors
 from .core.paths import config_dir, config_file
 from .core.platform_info import IS_LINUX, default_categories, home
@@ -37,6 +38,7 @@ from .services.drive_usage import DriveUsage
 from .services.credential_store import CredentialStore, login_key
 from .services.desktop_apps import DesktopApps
 from .services.fileops import FileOperations
+from .services.transfer_engine import TransferEngine
 from .services.remote_open import RemoteOpener
 from .services.stream_server import StreamServer
 from .services.scanner import DirectoryScanner
@@ -165,6 +167,16 @@ def build_context(app) -> AppContext:
 
     ctx.fileops = FileOperations(ctx.vfs, ctx.runner, ctx.jobs, ask_conflict, report_errors, publish_changed,
                                  record_history)
+    ctx.transfer_log = TransferLog(JsonStore(config_file("transfers.json")),
+                                   keep=lambda: bool(ctx.settings.get("transfers.keep_log", True)))
+    ctx.transfers = TransferEngine(
+        ctx.vfs, ctx.runner, ctx.jobs, ctx.transfer_log,
+        options=lambda: {"verify": bool(ctx.settings.get("transfers.verify", True)),
+                         "algorithm": ctx.settings.get("transfers.algorithm", "blake2b"),
+                         "verify_from_disk": bool(ctx.settings.get("transfers.verify_from_disk", True))},
+        ask_conflict=ask_conflict, publish_changed=publish_changed, record_history=record_history,
+        on_event=lambda event, t: ctx.dispatcher.post(ctx.bus.publish, Topics.TRANSFERS_CHANGED,
+                                                      event=event, transfer=t))
     ctx.drive_usage = DriveUsage(ctx.runner, lambda: ctx.devices.devices if ctx.devices else [],
                                  lambda path: ctx.bus.publish(Topics.DRIVE_USAGE_CHANGED, path=path))
     ctx.drive_usage.enabled = bool(ctx.settings.get("appearance.drive_usage", True))
@@ -201,6 +213,9 @@ def build_context(app) -> AppContext:
     ctx.actions = ActionRegistry(main, ctx.settings, ctx.commands.focus_in_files)
     register_all(ctx.actions, ctx)
     main.build_chrome()
+    from .ui.transfers.controller import TransferUI
+    ctx.transfer_ui = TransferUI(ctx)
+    main.confirm_close = ctx.transfer_ui.confirm_quit
 
     # -- reactions that span several parts -------------------------------------------
     def on_fs_changed(paths):
@@ -268,11 +283,14 @@ def run(argv: List[str]) -> int:
                 ctx.settings.save()
             if ctx.history.dirty:
                 ctx.history.save()
+            if ctx.transfer_log.dirty or ctx.transfer_log.active():
+                ctx.transfer_log.save()
         except Exception:  # noqa: BLE001
             log.exception("Saving failed")
 
     def on_exit() -> None:
         save_all()
+        ctx.transfer_ui.shutdown()
         ctx.watcher.stop()
         ctx.devices.stop()
         ctx.search.close()

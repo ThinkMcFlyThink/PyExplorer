@@ -47,6 +47,7 @@ pip install -r requirements.txt
 | **Sidebar** | Entirely user-defined categories. Add any folder, drive or network location to any category. Rename, reorder and delete categories. Drag items between them. Drag folders in from a view (or another app). F9 toggles it. **Cloud, Drives and Network are live**: they show what is synced, plugged in or mounted *right now*. See [Drives, mounts and cloud storage](#drives-mounts-and-cloud-storage). |
 | **Search (Ctrl+F)** | A **Search tab**: one or many folders/drives/shares, or the whole computer. Searches names as you type, Voidtools-Everything style, from an index: milliseconds over millions of files. Also text **inside** files, size, date, type, extensions, hidden files and excluded folders. Results are a normal file list: open, drag, copy, delete, rename. See [Search tab](#the-search-tab-ctrlf). |
 | **Rename (Ctrl+F2)** | A **Rename tab** in the spirit of Bulk Rename Utility: Replace, Case, Remove, Move/Copy, Add, Numbering and Extension rules, with **Before / After** columns, conflict checks, safe renaming (swaps and chains) and Undo. F2 with several items selected opens it too. See [Rename tab](#the-rename-tab-ctrlf2). |
+| **Transfers (Ctrl+J)** | PyExplorer's own copy/move, in the spirit of TeraCopy. **Verifies every file** by default, keeps going when a file fails, stops only if the drive fills up, and **won't start a transfer that wouldn't fit**. Per-file ✓/✗ list, speed plot, and a list of past transfers. Shows in a window or a tab whose tab is shaded with the progress, plus progress on the taskbar. See [Transfers](#transfers-ctrlj). |
 | **History (Ctrl+H)** | A **History tab** listing what you did to files: renames (also from the Rename tab), moves, copies, new folders/files, trash and permanent deletes. Undo a whole action or single files, newest first. Deletes are listed but can't be undone. See [History tab](#the-history-tab-ctrlh). |
 | **Instant filter** | Just start typing in a folder (or Ctrl+I). |
 | **Address bar** | Clickable breadcrumbs. Click a `›` for a sub-folder menu. Click empty space or press Ctrl+L to type a path (local paths auto-complete) or `sftp://user@host/path`. Drop files on a crumb to copy them there. |
@@ -157,6 +158,42 @@ the same name, an existing file is never overwritten, and invalid names are refu
 plus `<>:"\|?*` and reserved names on Windows). Swaps and chains (a → b while b → c)
 and case-only changes are done safely via temporary names. If one rename fails, the others
 still happen and that file keeps its old name. **Undo last rename** puts everything back.
+
+### Transfers (Ctrl+J)
+
+Every paste, drag-and-drop and *copy/move to other panel* goes through PyExplorer's own
+transfer engine and opens the **transfer window**. Ctrl+J or *Tools → Transfers…* opens it at any time.
+PyExplorer can't replace copies made by *other* programs.
+
+- **Verified by default.** Each file is checksummed while it's copied, then the copy is read
+  back and checked against it. On local drives the copy is flushed to disk and dropped from the
+  OS cache first, so the check reads the disk rather than memory. The default checksum is BLAKE2b; xxHash3,
+  MD5, SHA-1 and SHA-256 are in Preferences. Verification can be turned off there.
+- **One bad file doesn't stop the rest.** It gets a red ✗ with the reason, and the next one starts.
+  A folder with failures inside gets a ✗ too, saying how many failed. Only a **full drive**
+  stops a transfer, and then the files not reached are marked *not copied*.
+- **Space is checked first.** A transfer that would fill the destination drive doesn't start at
+  all. You're told how much it needs and how much is free.
+- **Moves are safe.** An original is deleted only after its copy is verified. A move within one drive is
+  a rename, which is instant. Emptied source folders are removed. Half-written files are never left behind.
+- **What you see:** a big progress bar, the current file, current and average speed, time left,
+  ✓/✗ counts, a **speed plot**, Pause/Resume/Cancel, and the file list with a ✓ or ✗ per file.
+  *Show: Problems* lists just what needs attention. The file list can be hidden with the *Files* checkbox.
+  Double-click a file to open its folder.
+- **A transfer log.** A new copy never wipes the earlier ones. Every transfer stays listed with its
+  date and time, number of files, size, average speed and result, until you press *Clear finished*.
+  The list is kept between sessions in `transfers.json`. Full file lists are saved for the newest
+  transfers, up to 50,000 rows. Failed and not-copied files are always saved.
+- **Window or tab.** The window is the default, and it **stays open when done** (both changeable
+  under *Preferences → Transfers*). *Open as tab* moves it into the main window as a
+  Transfers tab, **shaded like a progress bar** while copying. *Open in a window* moves it back.
+  A transfer that starts shows the window or tab without taking the keyboard focus.
+- **Taskbar progress**, in window or tab mode: Windows (the taskbar button), KDE Plasma /
+  GNOME docks / Plank through the Unity launcher API (needs PyExplorer installed with a
+  `pyexplorer.desktop` file), and Cinnamon / MATE / Xfce through the XApp window hint.
+- Quitting while something is copying asks first.
+- *Preferences → Transfers → Copy and move with: Simple copier* switches back to the older copier,
+  which shows only status-bar progress and doesn't verify.
 
 ### The History tab (Ctrl+H)
 
@@ -359,6 +396,7 @@ explorer/
     search_spec.py         what a search asks for (locations, name, contents, filters)
     rename_rules.py        the Rename tab's rules + conflict checks (pure functions)
     folder_model.py        sorted + filtered list for a tab sorting.py   natural sort keys
+    transfer_model.py      transfers + per-file states + the saved transfer log (no I/O)
     file_history.py        the History tab's record of renames/moves/copies/deletes, saved within a budget
     history.py  categories.py  folder_colors.py  connections.py  session.py  clipboard.py
     cloud.py               cloud file states (cloud only / on device / pinned) from OS attributes
@@ -374,6 +412,7 @@ explorer/
     index_manager.py       which indexes exist, building, saving, background refresh, patching
     content_search.py      text inside files (memory-mapped regex; chunked for network files)
     bulk_rename.py         safe batch renaming (swaps, chains, case-only) + undo
+    transfer_engine.py     PyExplorer's copy/move: plan, space check, copy+checksum, verify, continue on errors
     drive_usage.py         how full each drive is: statvfs, rclone mounts, `rclone about` for cloud folders
     fileops.py             copy/move/delete jobs; records them for the History tab, and undoes them
     watcher.py             auto-refresh                   terminal.py (shell back-ends), platform_ops.py
@@ -396,6 +435,8 @@ explorer/
     main_window.py  menubar.py  context_menu.py  dialogs.py  icons.py
     qt_messages.py         Qt's own warnings -> our log; known-harmless ones (desktop portal) hushed
     utility/               utility tabs: base.py (UtilityTab + header), search_tab.py, rename_tab.py, history_tab.py
+    transfers/             the transfer window: panel.py, files_model.py, speed_plot.py, window.py, tab.py, controller.py
+    taskbar.py             taskbar / dock progress (Windows, Unity launcher API, XApp)
     theme.py               applies a theme + the chosen fonts: Qt palette + style sheet for the window chrome
     font_picker.py         drop-down of installed fonts (all, or monospace only), each shown in its own face
     themes.py              the 50 colour themes as data, + contrast rules (no Qt)
@@ -447,6 +488,7 @@ python tests/test_themes.py        # contrast rules for every theme, no Qt warni
 python tests/test_search.py        # index search == slow reference search (297 combinations), contents, speed
 python tests/test_rename.py        # every rename rule, conflict checks, swaps/chains/undo on disk
 python tests/test_drive_usage.py   # drive bars: disk / rclone mount / rclone about, cache (rclone faked; --real asks yours)
+python tests/test_transfers.py     # transfer engine: verify, failures, full drive, space check, moves, pause, log
 python tests/test_history.py       # History: recording, undo of every kind, never overwriting, size budget
 python tests/test_gui.py           # the real interface, no screen needed (~70 checks)
 python tests/test_gui.py --shots   # ...and save screenshots to tests/screenshots/

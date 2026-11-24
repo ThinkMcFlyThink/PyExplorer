@@ -37,6 +37,9 @@ class AppContext:
         self.scanner: Any = None         # services.scanner.DirectoryScanner
         self.search: Any = None          # services.search.SearchService
         self.fileops: Any = None         # services.fileops.FileOperations
+        self.transfer_log: Any = None    # core.transfer_model.TransferLog (every copy/move and its files)
+        self.transfers: Any = None       # services.transfer_engine.TransferEngine (does the copying)
+        self.transfer_ui: Any = None     # ui.transfers.controller.TransferUI (window / tab, taskbar progress)
         self.drive_usage: Any = None     # services.drive_usage.DriveUsage (how full each drive is)
         self.watcher: Any = None         # services.watcher.FolderWatcher
         self.desktop_apps: Any = None    # services.desktop_apps.DesktopApps (Linux only, else None)

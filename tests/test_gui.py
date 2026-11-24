@@ -362,6 +362,8 @@ ctx.commands.set_folder_color([f1], "#ff0000")
 check(ctx.folder_colors.get(f1) == "#ff0000", "folder colour saved")
 
 print("terminal")
+main.activateWindow()          # (Qt's offscreen platform activates every window shown, e.g. the transfer window)
+spin(timeout=0.2)
 QTest.keyClick(main, Qt.Key.Key_F4)
 spin(timeout=1.0)
 check(main.terminal_visible and main.terminal.backend is not None, "F4 opens the terminal")
@@ -512,6 +514,55 @@ ctx.commands.set_view_mode("details")
 tab.navigate(data)
 spin(loaded(tab))
 
+print("transfers (copy window)")
+from explorer.core import transfer_model as tm  # noqa: E402
+tsrc = tempfile.mkdtemp(prefix="pyx-tsrc-")
+tdst = tempfile.mkdtemp(prefix="pyx-tdst-")
+for i in range(12):
+    with open(os.path.join(tsrc, f"t{i}.bin"), "wb") as fh:
+        fh.write(os.urandom(50_000))
+before = len(ctx.transfer_log.transfers)
+ctx.commands.copy([os.path.join(tsrc, f"t{i}.bin") for i in range(12)])
+ctx.commands.paste(tdst)
+tr = ctx.transfer_log.transfers[-1]
+check(len(ctx.transfer_log.transfers) == before + 1 and ctx.transfer_ui.window.isVisible(),
+      "paste starts a transfer in the pop-up window")
+check(spin(lambda: tr.state == tm.DONE, 20) and tr.ok and {f.state for f in tr.files} == {tm.VERIFIED},
+      "all 12 files copied and verified (on by default)")
+tp = ctx.transfer_ui.panel
+spin(timeout=0.4)
+check(tp.selected is tr and tp.files.rowCount() == 12 and tp.files.data(tp.files.index(0, 0)) == "✓",
+      "the window lists every file with a green tick")
+check(ctx.transfer_ui.window.isVisible(), "the window stays open when done (default)")
+ctx.commands.paste(tdst)                                  # again: "keep both" -> a second transfer, first one kept
+check(spin(lambda: not ctx.transfer_log.transfers[-1].active, 20) and len(ctx.transfer_log.transfers) == before + 2
+      and tp.list.topLevelItemCount() == len(ctx.transfer_log.transfers), "a second transfer is added; the first stays listed")
+tp.mode_btn.click()
+spin(timeout=0.3)
+tt = ctx.transfer_ui.tab
+check(tt is not None and getattr(tt, "KIND", "") == "transfers" and not ctx.transfer_ui.window.isVisible()
+      and tp.isVisibleTo(tt), "'Open as tab' moves it into a Transfers tab")
+check(tt.progress is None and tt.title == "Transfers", "no shading when nothing runs")
+fake = tm.Transfer("copy", ["/x"], "/y")
+fake.state, fake.total_bytes, fake.done_bytes = tm.RUNNING, 100, 40
+ctx.transfer_log.add(fake)
+check(abs(tt.progress - 0.4) < 1e-6 and tt.title == "Transfers 40 %", "running: the tab is shaded as a progress bar")
+check(ctx.transfer_ui.overall()[0] == 0.4, "...and the taskbar gets the same progress")
+dialogs_confirm = dialogs.confirm
+dialogs.confirm = lambda *a, **k: False
+check(not ctx.transfer_ui.confirm_quit(), "quitting while copying asks first")
+dialogs.confirm = dialogs_confirm
+ctx.transfer_log.transfers.remove(fake)
+tp.mode_btn.click()
+spin(timeout=0.3)
+check(ctx.transfer_ui.tab is None and ctx.transfer_ui.window.isVisible(), "and back to its own window")
+ctx.transfer_ui.window.hide()
+main.activateWindow()
+spin(timeout=0.2)
+# (Leaving FILES on the clipboard makes Qt's offscreen platform crash at exit: it frees our
+#  Python-made QMimeData after Python has shut down. Not an issue on X11; see system_clipboard.py.)
+system_clipboard.put_text("")
+
 print("session save + restore")
 tab.panel.activate(tab.panel.tab_widget.indexOf(tab))   # (from the History tab: Ctrl+F2 needs a folder)
 ctx.commands.open_rename()                               # a utility tab of each kind is saved too
@@ -523,6 +574,8 @@ ctx.session.save(state)
 ctx.settings.save()
 history_ids = [r.id for r in ctx.history.records()]
 ctx.history.save()
+transfer_ids = [t.id for t in ctx.transfer_log.transfers]
+ctx.transfer_log.save()
 paths = [t.get("path") or t["utility"] for p in state["panels"] for t in p["tabs"]]
 ctx.watcher.stop()
 ctx.runner.shutdown()
@@ -539,7 +592,9 @@ r2 = next(t for p in ctx2.main.panel_area.panels for t in p.tabs if getattr(t, "
 s2 = next(t for p in ctx2.main.panel_area.panels for t in p.tabs if getattr(t, "KIND", "") == "search")
 check(r2.read_rules().add_prefix == "x_" and s2.name_edit.text() == "inner", "utility tabs come back with their settings")
 check(ctx2.settings.get("view.mode") == "details", "view mode remembered")
-check([r.id for r in ctx2.history.records()] == history_ids and ctx2.history.records()[0].undone,
+check([t.id for t in ctx2.transfer_log.transfers] == transfer_ids and len(transfer_ids) >= 2,
+      f"the transfer list ({len(transfer_ids)} transfers) is kept between sessions")
+check([r.id for r in ctx2.history.records()] == history_ids and any(r.undone for r in ctx2.history.records()),
       f"history ({len(history_ids)} actions) kept between sessions, with what was undone")
 # Regression: tabs restored before the window appeared used to get a 0-pixel-tall tab bar.
 ctx2.main.resize(1100, 700)

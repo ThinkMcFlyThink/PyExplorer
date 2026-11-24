@@ -25,7 +25,7 @@ MENUS = [
                "window.fullscreen", "-", "view.refresh"]),
     ("&Go", ["go.back", "go.forward", "go.up", "go.home", "go.computer", "go.location", "-",
              "tab.next", "tab.prev", "tab.to_other", "panel.switch"]),
-    ("&Tools", ["edit.search", "tools.rename", "tools.history", "tools.update_index", "-", "tools.terminal_external", "-",
+    ("&Tools", ["edit.search", "tools.rename", "tools.transfers", "tools.history", "tools.update_index", "-", "tools.terminal_external", "-",
                 "net.new", "net.logins", "-", "tools.preferences"]),
     ("&Help", ["help.shortcuts", "help.about"]),
 ]

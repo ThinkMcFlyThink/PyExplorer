@@ -77,6 +77,18 @@ DEFAULTS: Dict[str, Any] = {
         "workers": 0,             # parallel readers for NETWORK folders (0 = automatic)
         "live": True,             # search as you type
     },
+    "transfers": {
+        # PyExplorer's own copy/move (services/transfer_engine.py + the transfer window).
+        "engine": "pyexplorer",   # pyexplorer | simple (the older copier without verify / window)
+        "verify": True,           # checksum every file while copying, then read the copy back and compare
+        "algorithm": "blake2b",   # blake2b | xxh3 | md5 | sha1 | sha256
+        "verify_from_disk": True, # flush + drop the OS cache before reading back (local drives)
+        "show_in": "window",      # window | tab
+        "close_when_done": False, # hide the window when everything finished fine
+        "keep_log": True,         # keep the list of transfers between sessions (transfers.json)
+        "show_files": True,       # the per-file list under the progress
+        "window_geometry": "",
+    },
     "history": {
         # The History tab (Ctrl+H): renames, moves, copies, deletes... Saved in history.json
         # within a size budget (see core/file_history.py); False = forget it all on close.

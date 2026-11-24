@@ -18,6 +18,7 @@ _REGISTRY = {
     "search": ("explorer.ui.utility.search_tab", "SearchTab"),
     "rename": ("explorer.ui.utility.rename_tab", "RenameTab"),
     "history": ("explorer.ui.utility.history_tab", "HistoryTab"),
+    "transfers": ("explorer.ui.transfers.tab", "TransfersTab"),
 }
 
 

@@ -223,6 +223,19 @@ class Commands:
             state = {"folder": folder, "checked": paths}
         self.area.active_panel.open_utility("rename", state)
 
+    def start_transfer(self, paths: List[str], dest: str, move: bool) -> None:
+        """Every copy/move (paste, drop, to the other panel). PyExplorer's own engine with the
+        transfer window, unless Preferences -> Transfers -> engine is "simple"."""
+        if self.ctx.transfers is not None and self.ctx.settings.get("transfers.engine", "pyexplorer") != "simple":
+            self.ctx.transfers.start(paths, dest, move)
+        else:
+            self.ctx.fileops.transfer(paths, dest, move=move)
+
+    def open_transfers(self) -> None:
+        """Ctrl+J: show the transfer window / tab (with the list of transfers so far)."""
+        if self.ctx.transfer_ui is not None:
+            self.ctx.transfer_ui.show(activate=True)
+
     def open_history(self) -> None:
         """Ctrl+H: the History tab. There is only one - if it is open somewhere, go to it."""
         for tab in self.all_tabs():
@@ -514,7 +527,7 @@ class Commands:
         if cut:                                 # a cut can only be pasted once
             self.ctx.clipboard.clear()
             system_clipboard.put_text("")
-        self.ctx.fileops.transfer(paths, dest, move=cut)
+        self.start_transfer(paths, dest, move=cut)
 
     # ======================================================================
     # File operations
@@ -605,7 +618,7 @@ class Commands:
             move = op == "move"
         if all(dest_fs.parent(p) == dest for p in paths) and move:
             return                                 # dropped where they already are
-        self.ctx.fileops.transfer(paths, dest, move=move)
+        self.start_transfer(paths, dest, move=move)
 
     def transfer_to_other_panel(self, paths: Optional[List[str]] = None, move: bool = False) -> None:
         other = self.area.other_panel()
@@ -615,7 +628,7 @@ class Commands:
             self.status("Open split view (F3) and a folder on the other side first", "error")
             return
         if paths:
-            self.ctx.fileops.transfer(paths, target, move=move)
+            self.start_transfer(paths, target, move=move)
 
     def properties(self, entries: Optional[List[FileEntry]] = None) -> None:
         entries = entries if entries is not None else self._selection()
