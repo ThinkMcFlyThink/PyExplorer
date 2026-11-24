@@ -43,6 +43,7 @@ class Device:
     mounted: bool = True            # False for /etc/fstab shares that aren't mounted yet
     running: Optional[bool] = None  # cloud sync app running? (None = not applicable)
     cloud_root: Optional[CloudRoot] = field(default=None, compare=False, repr=False)
+    source: str = ""                # rclone mounts: the remote ("onedrive:Docs"), for its quota
 
     def key(self) -> Tuple:
         """Everything the UI shows - two snapshots with equal keys look identical."""
@@ -159,7 +160,7 @@ def classify_mount(source: str, mount_point: str, fstype: str, home: str,
         kind = {"cloud": "cloud", "network": "network"}.get(info.section, "drive")
         provider = info.provider
         return Device(name, mount_point, kind, info.section, provider,
-                      f"rclone mount of {source} ({provider})")
+                      f"rclone mount of {source} ({provider})", source=source)
     known = NETWORK_TYPES.get(fstype)
     if known is None and fstype.startswith("fuse.") and "pcloud" in fstype.lower():
         known = ("cloud", "pCloud")

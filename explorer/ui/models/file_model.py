@@ -323,6 +323,9 @@ class FileModel(QAbstractItemModel):
             if col == "name":
                 return entry.name
             if col == "size":
+                if entry.parent == "computer://":            # Computer view: free space of each drive
+                    usage = self.ctx.drive_usage.get(entry.path) if self.ctx.drive_usage else None
+                    return f"{human_size(usage.free)} free" if usage is not None else ""
                 return "" if entry.is_dir else human_size(entry.size)
             if col == "type":
                 return entry.type_label
@@ -378,6 +381,10 @@ class FileModel(QAbstractItemModel):
             state, root = self.cloud_info(entry)
             if state != cloud.NONE:
                 lines.append(f"{root.provider if root else 'Cloud'} — {cloud.LABELS[state].lower()}")
+            if entry.parent == "computer://" and self.ctx.drive_usage:
+                usage = self.ctx.drive_usage.get(entry.path)
+                if usage is not None:
+                    lines.append(usage.tooltip)
             return "\n".join(lines)
         return None
 

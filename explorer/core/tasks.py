@@ -153,7 +153,8 @@ class TaskRunner:
     copy ("ops") never delays either.
     """
 
-    POOL_SIZES = {"io": 8, "search": 4, "ops": 3, "thumb": 3, "misc": 4}
+    POOL_SIZES = {"io": 8, "search": 4, "ops": 3, "thumb": 3, "misc": 4,
+                  "usage": 3}     # drive fill bars: kept apart, a stuck network mount may block one
 
     def __init__(self, dispatcher: UIDispatcher) -> None:
         self.dispatcher = dispatcher

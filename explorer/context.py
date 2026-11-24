@@ -31,11 +31,13 @@ class AppContext:
         self.cloud: Any = None           # services.cloud_providers.CloudProviders
         self.devices: Any = None         # services.device_monitor.DeviceMonitor (.devices = live list)
         self.session: Any = None         # core.session.Session
+        self.history: Any = None         # core.file_history.FileHistory (the History tab, Ctrl+H)
         # file systems + services
         self.vfs: Any = None             # vfs.registry.VfsRegistry
         self.scanner: Any = None         # services.scanner.DirectoryScanner
         self.search: Any = None          # services.search.SearchService
         self.fileops: Any = None         # services.fileops.FileOperations
+        self.drive_usage: Any = None     # services.drive_usage.DriveUsage (how full each drive is)
         self.watcher: Any = None         # services.watcher.FolderWatcher
         self.desktop_apps: Any = None    # services.desktop_apps.DesktopApps (Linux only, else None)
         self.stream_server: Any = None   # services.stream_server.StreamServer

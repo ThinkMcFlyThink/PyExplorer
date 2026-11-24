@@ -180,6 +180,7 @@ def register_all(reg: ActionRegistry, ctx) -> None:
     reg.add("edit.filter", "Filter this folder", c.toggle_filter, "Ctrl+I", i("view-filter"))
     reg.add("edit.search", "Search…", lambda: c.open_search(), "Ctrl+F", ctx.icons.symbol("search", force=True))
     reg.add("tools.rename", "Bulk rename…", lambda: c.open_rename(), "Ctrl+F2", ctx.icons.symbol("rename", force=True))
+    reg.add("tools.history", "History…", c.open_history, "Ctrl+H", ctx.icons.symbol("history", force=True))
     reg.add("edit.copy_other", "Copy to other panel", lambda: c.transfer_to_other_panel(move=False), "Shift+F5",
             files_only=True)
     reg.add("edit.move_other", "Move to other panel", lambda: c.transfer_to_other_panel(move=True), "Shift+F6",
@@ -192,7 +193,11 @@ def register_all(reg: ActionRegistry, ctx) -> None:
     reg.add("view.zoom_in", "Zoom in", lambda: c.zoom(1), ["Ctrl++", "Ctrl+="], i("zoom-in"))
     reg.add("view.zoom_out", "Zoom out", lambda: c.zoom(-1), "Ctrl+-", i("zoom-out"))
     reg.add("view.zoom_reset", "Reset zoom", c.zoom_reset, "Ctrl+0", i("zoom-original", SP.SP_DialogResetButton))
-    reg.add("view.hidden", "Show hidden files", c.toggle_hidden, ["Ctrl+H", "Alt+."], check=lambda: s.get("view.show_hidden"))
+    # (Ctrl+H is the History tab; hidden files moved to Ctrl+Shift+H / Alt+.)
+    reg.add("view.hidden", "Show hidden files", c.toggle_hidden, ["Ctrl+Shift+H", "Alt+."],
+            check=lambda: s.get("view.show_hidden"))
+    reg.add("view.drive_usage", "Drive usage bars", c.toggle_drive_usage,
+            check=lambda: s.get("appearance.drive_usage", True))
     reg.add("view.folders_first", "Folders first", c.toggle_folders_first, check=lambda: s.get("view.folders_first"))
     reg.add("view.sort_desc", "Descending", c.toggle_sort_reverse, check=lambda: s.get("view.sort_reverse"))
     for key, label in (("name", "Name"), ("size", "Size"), ("type", "Type"), ("modified", "Date modified")):

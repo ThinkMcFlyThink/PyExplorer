@@ -39,6 +39,8 @@ class Topics:
     JOBS_CHANGED = "jobs.changed"                    # job=Job
     STATUS_MESSAGE = "status.message"                # text=str, level=str
     DEVICES_CHANGED = "devices.changed"              # old=list[Device], new=list[Device] (drives/mounts/cloud)
+    DRIVE_USAGE_CHANGED = "drives.usage_changed"     # path=str (services/drive_usage.py measured a drive)
+    HISTORY_CHANGED = "history.changed"              # the History tab's list changed (core/file_history.py)
 
 
 class EventBus:

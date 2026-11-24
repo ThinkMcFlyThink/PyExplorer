@@ -126,7 +126,7 @@ check(tab.qmodel.rowCount() == 2005, "closing the filter restores the list")
 print("hidden files + sorting")
 ctx.commands.toggle_hidden()
 spin(timeout=0.1)
-check(tab.qmodel.rowCount() == 2006, "Ctrl+H shows hidden file")
+check(tab.qmodel.rowCount() == 2006, "Ctrl+Shift+H shows hidden file")
 ctx.commands.toggle_hidden()
 ctx.commands.set_sort("size")
 spin(timeout=0.1)
@@ -451,7 +451,69 @@ tab.hide_filter()
 tab.navigate(data)
 spin(loaded(tab))
 
+print("history tab (Ctrl+H)")
+keys = lambda aid: [s.toString() for s in ctx.actions.qaction(aid).shortcuts()]
+check("Ctrl+H" in keys("tools.history") and "Ctrl+H" not in keys("view.hidden"), "Ctrl+H opens History (hidden files: Ctrl+Shift+H)")
+check(len(ctx.history) > 0 and {"rename", "copy", "move", "create"} <= {r.kind for r in ctx.history.records()},
+      f"earlier renames, copies, moves and new folders were recorded ({len(ctx.history)} actions)")
+src10 = os.path.join(data, "file10.txt")
+ctx.commands.rename_to(tab, src10, "hist_renamed.txt")
+check(spin(lambda: ctx.history.records()[0].kind == "rename" and
+           ctx.history.records()[0].items[0]["src"] == src10), "a rename appears at the top of the history")
+ctx.actions.trigger("tools.history")
+ht = ctx.commands.active_tab()
+check(getattr(ht, "KIND", "") == "history" and ht.model.rowCount() == len(ctx.history), "Ctrl+H opens the History tab")
+check(ht.model.data(ht.model.index(0, 0)) == "Renamed" and "file10.txt" in ht.model.data(ht.model.index(0, 1)),
+      "newest action first, showing old → new name")
+ctx.commands.active_tab().panel.activate(0)
+ctx.actions.trigger("tools.history")
+check(ctx.commands.active_tab() is ht and sum(getattr(t, "KIND", "") == "history" for t in ctx.commands.all_tabs()) == 1,
+      "Ctrl+H again goes to the same History tab")
+ht.tree.setCurrentIndex(ht.model.index(0, 0))
+check(ht.undo_btn.isEnabled() and ht.undo_btn.text() == "Undo 1 item", "selecting it enables Undo")
+ht.undo_selected()
+check(spin(lambda: os.path.exists(src10) and not os.path.exists(os.path.join(data, "hist_renamed.txt"))),
+      "Undo renames the file back")
+check(spin(lambda: ht.model.data(ht.model.index(0, 4)) == "Undone" and not ht.undo_btn.isEnabled()),
+      "the action shows as Undone")
+trash_rows = [r for r in range(ht.model.rowCount()) if ht.model.rows[r].kind in ("trash", "delete")]
+check(trash_rows and ht.model.data(ht.model.index(trash_rows[0], 4)).startswith("Can't be undone"),
+      "deletes are listed but can't be undone")
+ht.find_edit.setText("hist_renamed")
+check(ht.model.rowCount() == 1, "Find narrows the list")
+ht.find_edit.setText("")
+shot("history")
+
+print("drive usage bars")
+from explorer.ui.sidebar import USAGE_ROLE  # noqa: E402
+check(spin(lambda: ctx.drive_usage.get("/") is not None, 10), "the system disk gets measured in the background")
+sb = main.sidebar
+rows = [sb.topLevelItem(i).child(j) for i in range(sb.topLevelItemCount()) for j in range(sb.topLevelItem(i).childCount())]
+check(any(r.data(0, USAGE_ROLE) == "/" for r in rows), "the Root (/) sidebar row has a usage bar")
+check(not any(r.data(0, USAGE_ROLE) and r.text(0) == "Home" for r in rows), "plain folders (Home) don't")
+tab.panel.activate(tab.panel.tab_widget.indexOf(tab))
+tab.navigate("computer://")
+spin(loaded(tab))
+ctx.commands.set_view_mode("details")
+spin(timeout=0.2)
+root_row = next(r for r in range(tab.qmodel.rowCount()) if tab.qmodel.top_entries()[r].path == "/")
+size_col = tab.qmodel.columns.index("size")
+check((tab.qmodel.data(tab.qmodel.index(root_row, size_col)) or "").endswith(" free") and
+      "free of" in tab.qmodel.data(tab.qmodel.index(root_row, 0), Qt.ItemDataRole.ToolTipRole),
+      "Computer view: the Size column says how much is free")
+shot("drive_usage_details")
+ctx.commands.set_view_mode("icons")
+spin(timeout=0.3)
+shot("drive_usage_icons")
+ctx.actions.trigger("view.drive_usage")
+check(ctx.drive_usage.get("/") is None and not ctx.settings.get("appearance.drive_usage"), "View → Drive usage bars turns them off")
+ctx.actions.trigger("view.drive_usage")
+ctx.commands.set_view_mode("details")
+tab.navigate(data)
+spin(loaded(tab))
+
 print("session save + restore")
+tab.panel.activate(tab.panel.tab_widget.indexOf(tab))   # (from the History tab: Ctrl+F2 needs a folder)
 ctx.commands.open_rename()                               # a utility tab of each kind is saved too
 ctx.commands.active_tab().rule_widgets["add_prefix"].setText("x_")
 ctx.commands.open_search([data], name="inner")
@@ -459,6 +521,8 @@ spin(timeout=0.3)
 state = main.session_state()
 ctx.session.save(state)
 ctx.settings.save()
+history_ids = [r.id for r in ctx.history.records()]
+ctx.history.save()
 paths = [t.get("path") or t["utility"] for p in state["panels"] for t in p["tabs"]]
 ctx.watcher.stop()
 ctx.runner.shutdown()
@@ -475,6 +539,8 @@ r2 = next(t for p in ctx2.main.panel_area.panels for t in p.tabs if getattr(t, "
 s2 = next(t for p in ctx2.main.panel_area.panels for t in p.tabs if getattr(t, "KIND", "") == "search")
 check(r2.read_rules().add_prefix == "x_" and s2.name_edit.text() == "inner", "utility tabs come back with their settings")
 check(ctx2.settings.get("view.mode") == "details", "view mode remembered")
+check([r.id for r in ctx2.history.records()] == history_ids and ctx2.history.records()[0].undone,
+      f"history ({len(history_ids)} actions) kept between sessions, with what was undone")
 # Regression: tabs restored before the window appeared used to get a 0-pixel-tall tab bar.
 ctx2.main.resize(1100, 700)
 ctx2.main.show()

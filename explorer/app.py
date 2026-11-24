@@ -22,6 +22,7 @@ from .core.categories import Categories
 from .core.clipboard import FileClipboard
 from .core.connections import Connections
 from .core.events import EventBus, Topics
+from .core.file_history import FileHistory
 from .core.folder_colors import FolderColors
 from .core.paths import config_dir, config_file
 from .core.platform_info import IS_LINUX, default_categories, home
@@ -32,6 +33,7 @@ from .core.tasks import JobManager, TaskRunner
 from .services.cloud_providers import CloudProviders
 from .services.device_monitor import DeviceMonitor, describe_changes
 from .services.devices import cloud_roots
+from .services.drive_usage import DriveUsage
 from .services.credential_store import CredentialStore, login_key
 from .services.desktop_apps import DesktopApps
 from .services.fileops import FileOperations
@@ -136,6 +138,9 @@ def build_context(app) -> AppContext:
     for conn, password in ctx.connections.take_plaintext_passwords():     # move old plain-text passwords
         ctx.credentials.set(login_key(conn), conn.get("user") or "", password)
     ctx.session = Session(JsonStore(config_file("session.json")))
+    ctx.history = FileHistory(JsonStore(config_file("history.json")),
+                              keep=lambda: bool(ctx.settings.get("history.keep", True)),
+                              on_change=lambda: ctx.bus.publish(Topics.HISTORY_CHANGED))
 
     # -- file systems + services ---------------------------------------------
     ctx.vfs = VfsRegistry(ctx.connections, UICredentials(ctx))
@@ -155,7 +160,14 @@ def build_context(app) -> AppContext:
     def publish_changed(folders):
         ctx.dispatcher.post(ctx.bus.publish, Topics.FS_CHANGED, paths=list(folders))
 
-    ctx.fileops = FileOperations(ctx.vfs, ctx.runner, ctx.jobs, ask_conflict, report_errors, publish_changed)
+    def record_history(kind, items):           # worker thread -> the History tab's list
+        ctx.dispatcher.post(ctx.history.record, kind, items)
+
+    ctx.fileops = FileOperations(ctx.vfs, ctx.runner, ctx.jobs, ask_conflict, report_errors, publish_changed,
+                                 record_history)
+    ctx.drive_usage = DriveUsage(ctx.runner, lambda: ctx.devices.devices if ctx.devices else [],
+                                 lambda path: ctx.bus.publish(Topics.DRIVE_USAGE_CHANGED, path=path))
+    ctx.drive_usage.enabled = bool(ctx.settings.get("appearance.drive_usage", True))
     ctx.stream_server = StreamServer(ctx.vfs)
     ctx.remote_opener = RemoteOpener(ctx.vfs, ctx.stream_server, ctx.settings)
     if IS_LINUX:
@@ -195,6 +207,7 @@ def build_context(app) -> AppContext:
         """Files changed: patch the search index and refresh affected tabs."""
         for p in paths:
             ctx.search.folder_changed(p)
+        ctx.drive_usage.invalidate()                     # free space may have changed: re-measure when shown
         for tab in list(ctx.commands.all_tabs()):
             for p in paths:
                 tab.on_folder_changed(p)
@@ -203,6 +216,15 @@ def build_context(app) -> AppContext:
     def on_setting(key, value=None):
         if key == "behaviour.watch_folders":
             ctx.watcher.enabled = bool(value)
+        elif key == "appearance.drive_usage":
+            ctx.drive_usage.enabled = bool(value)
+            ctx.bus.publish(Topics.DRIVE_USAGE_CHANGED, path="")
+        elif key == "history.keep":
+            if value:
+                ctx.history.save()
+            else:
+                ctx.history.forget_saved()
+            ctx.bus.publish(Topics.HISTORY_CHANGED)
     ctx.bus.subscribe(Topics.SETTINGS_CHANGED, on_setting)
     return ctx
 
@@ -244,6 +266,8 @@ def run(argv: List[str]) -> int:
             ctx.session.save(main.session_state())
             if ctx.settings.dirty:
                 ctx.settings.save()
+            if ctx.history.dirty:
+                ctx.history.save()
         except Exception:  # noqa: BLE001
             log.exception("Saving failed")
 

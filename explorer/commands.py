@@ -10,7 +10,7 @@ If you want to add a feature, this is usually the file to start in.
 """
 from __future__ import annotations
 
-from typing import Iterable, List, Optional
+from typing import Callable, Iterable, List, Optional
 
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QColorDialog
@@ -223,6 +223,61 @@ class Commands:
             state = {"folder": folder, "checked": paths}
         self.area.active_panel.open_utility("rename", state)
 
+    def open_history(self) -> None:
+        """Ctrl+H: the History tab. There is only one - if it is open somewhere, go to it."""
+        for tab in self.all_tabs():
+            if getattr(tab, "KIND", None) == "history":
+                tab.panel.activate(tab.panel.tab_widget.indexOf(tab))
+                return
+        self.area.active_panel.open_utility("history")
+
+    def undo_history(self, record_ids: List[str], indexes: Optional[dict] = None,
+                     on_done: Optional[Callable[[], None]] = None) -> None:
+        """Undo History records, newest first, one after the other (a later change may
+        depend on an earlier one: rename a->b then move b). ``indexes`` = {record id:
+        [item indexes]} to undo only some items of a record."""
+        history = self.ctx.history
+        records = sorted((r for r in (history.get(i) for i in record_ids) if r is not None),
+                         key=lambda r: r.time, reverse=True)
+        queue = []
+        for rec in records:
+            wanted = set((indexes or {}).get(rec.id) or rec.pending())
+            todo = [i for i in rec.pending() if i in wanted]
+            if todo:
+                queue.append((rec, todo))
+        if not queue:
+            self.status("Nothing here can be undone")
+            if on_done:
+                on_done()
+            return
+        totals = {"ok": 0, "failed": []}
+
+        def next_one() -> None:
+            if not queue:
+                failed = totals["failed"]
+                text = f"Undone {totals['ok']:,} item{'s' if totals['ok'] != 1 else ''}"
+                if failed:
+                    text += f" - {len(failed)} could not be: " + "; ".join(failed[:3])
+                self.status(text, "error" if failed else "info")
+                if on_done:
+                    on_done()
+                return
+            rec, todo = queue.pop(0)
+            items = [rec.items[i] for i in todo]
+
+            def finished(results: dict, rec=rec, todo=todo, items=items) -> None:
+                ok = [todo[n] for n, err in results.items() if not err]
+                history.mark_undone(rec.id, ok)
+                if rec.kind in ("rename", "move"):
+                    for n, err in results.items():
+                        if not err:
+                            self.ctx.folder_colors.rename(items[n]["dst"], items[n]["src"])
+                totals["ok"] += len(ok)
+                totals["failed"].extend(err for err in results.values() if err)
+                next_one()
+            self.ctx.fileops.undo(rec.kind, items, on_done=finished)
+        next_one()
+
     def update_search_index(self) -> None:
         """Rebuild the search index of the current location (or the whole computer)."""
         tab = self.active_tab()
@@ -266,6 +321,10 @@ class Commands:
     def zoom_reset(self) -> None:
         mode = self.ctx.settings.get("view.mode", "details")
         self.set_zoom(DEFAULTS["view"]["zoom"].get(mode, 1))
+
+    def toggle_drive_usage(self) -> None:
+        s = self.ctx.settings
+        s.set("appearance.drive_usage", not s.get("appearance.drive_usage", True))
 
     def toggle_hidden(self) -> None:
         value = not self.ctx.settings.get("view.show_hidden", False)

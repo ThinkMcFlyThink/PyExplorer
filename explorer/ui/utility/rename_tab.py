@@ -193,6 +193,7 @@ class RenameTab(UtilityTab):
         self._initial: Optional[Set[str]] = None    # opened with a selection: tick only these (once)
         self._unticked: Set[str] = set()            # what the user unticked (kept across reloads)
         self._undo: List = []
+        self._history_id: Optional[str] = None     # the History tab's record of the last rename
         self._busy = False
         self._loading = False
         self._rule_error = ""
@@ -210,6 +211,7 @@ class RenameTab(UtilityTab):
         self.undo_btn.setEnabled(False)
         self.undo_btn.clicked.connect(self.undo)
         self.header.buttons.addWidget(self.undo_btn)
+        self._unsubs.append(self.ctx.bus.subscribe(Topics.HISTORY_CHANGED, lambda **_: self._history_changed()))
 
         # -- which items ------------------------------------------------------
         bar = QFrame(self, objectName="UtilityPanel")
@@ -723,6 +725,15 @@ class RenameTab(UtilityTab):
             self.ctx.bus.publish(Topics.STATUS_MESSAGE, text=f"Rename failed: {exc}", level="error")
             self.reload()
             return
+        if undo:
+            if self._history_id:
+                self.ctx.history.mark_undone_pairs(self._history_id, undo_pairs(result.done))
+            self._history_id = None
+        elif result.done:
+            dirs = {i.path for i in self.items if i.is_dir}
+            rec = self.ctx.history.record("rename", [{"src": old, "dst": new, "dir": old in dirs}
+                                                     for old, new in result.done], source="Rename tab")
+            self._history_id = rec.id if rec else None
         self._undo = [] if undo else list(result.done)
         moved = dict(result.done)
         if self.files:                                         # list mode: follow the files to their new names
@@ -743,6 +754,16 @@ class RenameTab(UtilityTab):
         self.undo_btn.setEnabled(bool(self._undo))
         self.undo_btn.setToolTip(f"Rename the {len(self._undo):,} items back" if self._undo else "")
         self.reload()
+
+    def _history_changed(self) -> None:
+        """Undone from the History tab (or history cleared): our Undo button no longer applies."""
+        if self._undo and not self._busy:
+            rec = self.ctx.history.get(self._history_id) if self._history_id else None
+            if rec is None or rec.partly_undone or rec.undone:
+                self._undo = []
+                self._history_id = None
+                self.undo_btn.setEnabled(False)
+                self.undo_btn.setToolTip("")
 
     # ==================================================================
     # Tab protocol

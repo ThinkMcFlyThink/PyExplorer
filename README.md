@@ -47,14 +47,15 @@ pip install -r requirements.txt
 | **Sidebar** | Entirely user-defined categories. Add any folder, drive or network location to any category. Rename, reorder and delete categories. Drag items between them. Drag folders in from a view (or another app). F9 toggles it. **Cloud, Drives and Network are live**: they show what is synced, plugged in or mounted *right now*. See [Drives, mounts and cloud storage](#drives-mounts-and-cloud-storage). |
 | **Search (Ctrl+F)** | A **Search tab**: one or many folders/drives/shares, or the whole computer. Searches names as you type, Voidtools-Everything style, from an index: milliseconds over millions of files. Also text **inside** files, size, date, type, extensions, hidden files and excluded folders. Results are a normal file list: open, drag, copy, delete, rename. See [Search tab](#the-search-tab-ctrlf). |
 | **Rename (Ctrl+F2)** | A **Rename tab** in the spirit of Bulk Rename Utility: Replace, Case, Remove, Move/Copy, Add, Numbering and Extension rules, with **Before / After** columns, conflict checks, safe renaming (swaps and chains) and Undo. F2 with several items selected opens it too. See [Rename tab](#the-rename-tab-ctrlf2). |
+| **History (Ctrl+H)** | A **History tab** listing what you did to files: renames (also from the Rename tab), moves, copies, new folders/files, trash and permanent deletes. Undo a whole action or single files, newest first. Deletes are listed but can't be undone. See [History tab](#the-history-tab-ctrlh). |
 | **Instant filter** | Just start typing in a folder (or Ctrl+I). |
 | **Address bar** | Clickable breadcrumbs. Click a `›` for a sub-folder menu. Click empty space or press Ctrl+L to type a path (local paths auto-complete) or `sftp://user@host/path`. Drop files on a crumb to copy them there. |
 | **Folder colours** | Right-click a folder → Folder colour (palette or custom). |
 | **Cloud files** | OneDrive, Dropbox, Google Drive and iCloud folders are detected automatically. Each file gets a small badge showing the sync app's own icon, taken from the installed program: **greyed out + faded file** = cloud only, **full colour** = on this device, **full colour + dot** = always kept on this device. The tooltip and an optional **Status** column (right-click the column header) say it in words. On Windows, right-click → *Always keep on this device* / *Free up space*. Thumbnails and checksums never download cloud-only files by accident. *Show in system file manager* opens Explorer/Finder for OneDrive extras like Share or Version history. See [Cloud files](#cloud-files) below. |
 | **Network** | **SMB/Samba** (TrueNAS, Synology, QNAP, Windows PCs), SFTP, FTP and FTPS, saved like WinSCP's site manager (Connect… button), or just typed in the address bar. Copy, paste, drag, search and the filter work like on any other folder. Shares already mounted by your system (Nemo/GVFS, `/etc/fstab`, `mount`, rclone) show up by themselves under Computer and in the sidebar's Network section. See [Network shares](#network-shares-smb--truenas). |
 | **Files** | Copy/cut/paste **shared with other file managers** (Explorer, Finder, Dolphin, Nautilus), drag & drop **to and from other apps**, inline rename (F2), trash (Del) / permanent delete (Shift+Del), new folder/file, conflict dialog (replace / skip / keep both), progress + cancel in the status bar, properties with folder size and SHA-256. |
-| **Session** | Tabs (including Search and Rename tabs with their settings), panels, split, per-tab history, scroll position, selection, expanded tree folders, window/dock layout and terminal state are all restored on the next start, and autosaved every 20 s. |
-| **Other** | Back/forward/up (also mouse back/forward buttons), show hidden (Ctrl+H), sort by name/size/type/date with folders first, auto-refresh when folders change on disk, **50 colour themes** (see [Themes](#themes)), a "Computer" view of drives + connections, a preferences dialog, and an **editable keyboard-shortcuts dialog (F1)**. |
+| **Session** | Tabs (including Search, Rename and History tabs with their settings), panels, split, per-tab history, scroll position, selection, expanded tree folders, window/dock layout and terminal state are all restored on the next start, and autosaved every 20 s. |
+| **Other** | Back/forward/up (also mouse back/forward buttons), show hidden (Ctrl+Shift+H or Alt+.), sort by name/size/type/date with folders first, auto-refresh when folders change on disk, **50 colour themes** (see [Themes](#themes)), a "Computer" view of drives + connections, a preferences dialog, and an **editable keyboard-shortcuts dialog (F1)**. |
 
 ### Name search syntax
 
@@ -157,6 +158,37 @@ plus `<>:"\|?*` and reserved names on Windows). Swaps and chains (a → b while 
 and case-only changes are done safely via temporary names. If one rename fails, the others
 still happen and that file keeps its old name. **Undo last rename** puts everything back.
 
+### The History tab (Ctrl+H)
+
+Ctrl+H (or *Tools → History…*) opens the History tab. If it's already open, Ctrl+H goes to it.
+Each row is one action, with the newest at the top. Expand an action to see every file in it.
+*Show* narrows the list to one kind of action, or to what can still be undone. *Find* matches any part of a path.
+
+| Action | Undo does |
+|---|---|
+| **Renamed** (F2, or the Rename tab) | renames back. Swaps and chains are handled safely |
+| **Moved** (cut/paste, drag, Shift+F6) | moves back to the original folder and name, across drives and servers too |
+| **Copied** | removes the copies (to the trash where there is one). The originals are not touched |
+| **Created** (new folder / new file) | removes it, but only while it is still empty |
+| **Moved to trash / Deleted permanently** | can't be undone. These are listed only |
+
+Select actions or single files and press **Undo** (or Ctrl+Z in the list, or right-click).
+Several actions are undone newest first, because a later step may depend on an earlier one.
+**Undo never overwrites anything.** If something is already back at the old name, or the item has moved
+on since, that file is skipped with the reason in the status bar. You can retry once the
+way is clear. Two cases can't be undone and say so in the *Status* column:
+
+- a folder moved or copied **into an existing folder** of the same name. Taking it back would take the folder's old contents too.
+- a **copy that replaced** an existing file, because the replaced file is gone.
+
+Double-click a file (or right-click → *Open containing folder*) to go to where it is now.
+
+**Kept between sessions** in `history.json` next to `settings.json`, for 30 days. To keep the file small,
+it saves the newest actions up to a budget of 20,000 file paths, which is a few MB at most. A
+single bigger action (say, a 50,000-file bulk rename) is kept for the current session only,
+and is marked *this session only*. Untick **Keep after closing** to have the history forgotten
+when PyExplorer closes. *Clear history* empties the list. It never touches your files.
+
 ## Themes
 
 *View → Theme* (or *Preferences → Appearance*) offers **System** (your desktop's own look)
@@ -200,6 +232,19 @@ it's removed. The status bar says what was connected or removed.
 | **Cloud** | rclone mounts of cloud remotes (OneDrive, Google Drive, Dropbox, pCloud, MEGA, Proton Drive, S3…), onedriver, pCloud Drive, Google Drive from GNOME Online Accounts, and the folders of sync apps: the `onedrive` client, Dropbox, Nextcloud/ownCloud, Insync, MEGA. On Windows/macOS: every registered sync app. Hidden when there is none. |
 | **Drives** | Disks and partitions, USB sticks and SD cards, DVDs, phones and cameras (MTP), and other mounts in `/mnt` or your home folder (mergerfs, gocryptfs…). |
 | **Network** | Your saved connections, plus SMB/NFS/SSHFS mounts, rclone mounts of SFTP/SMB/FTP/WebDAV remotes, shares opened in Nemo, and `/etc/fstab` shares (greyed "not mounted" until opened). |
+
+**How full is it?** Every drive in the sidebar and in the Computer view has a bar behind its
+name in the theme's accent colour. The bar is stronger above 90% full. Point at the drive to see
+"X free of Y". The Computer view's Size column shows the free space. Turn the bars off under
+*View → Drive usage bars*. The numbers are measured in the background, so a slow or stuck network
+share never holds up the window.
+
+| Kind of drive | Where the numbers come from |
+|---|---|
+| Disks, USB sticks, SMB/NFS/SSHFS mounts, shares opened in Nemo (GVFS) | the drive or share itself, refreshed every 20 s while shown and after file operations |
+| rclone mounts (OneDrive, Google Drive, Dropbox…) | the cloud account's quota, which rclone reports for the mount. If a backend has no quota, `rclone about` is asked instead |
+| Sync app folders (OneDrive, Dropbox, Google Drive, MEGA apps, on any OS) | `rclone about <remote>:` when `rclone.conf` has a remote for the same service, refreshed every 10 min. With two accounts of one service, the remote's name must appear in the folder's label. **No matching remote = no bar.** The local disk's numbers would be wrong for a cloud folder |
+| `/etc/fstab` shares that aren't mounted, SFTP/FTP connections | not measured. Nothing is mounted or connected just for a bar |
 
 - **rclone:** PyExplorer reads your `rclone.conf` to see what each remote really is, so
   `rclone mount onedrive: ~/OneDrive` shows under Cloud with OneDrive's name. It also
@@ -314,6 +359,7 @@ explorer/
     search_spec.py         what a search asks for (locations, name, contents, filters)
     rename_rules.py        the Rename tab's rules + conflict checks (pure functions)
     folder_model.py        sorted + filtered list for a tab sorting.py   natural sort keys
+    file_history.py        the History tab's record of renames/moves/copies/deletes, saved within a budget
     history.py  categories.py  folder_colors.py  connections.py  session.py  clipboard.py
     cloud.py               cloud file states (cloud only / on device / pinned) from OS attributes
   vfs/                     "virtual file systems"
@@ -328,7 +374,8 @@ explorer/
     index_manager.py       which indexes exist, building, saving, background refresh, patching
     content_search.py      text inside files (memory-mapped regex; chunked for network files)
     bulk_rename.py         safe batch renaming (swaps, chains, case-only) + undo
-    fileops.py             copy/move/delete jobs
+    drive_usage.py         how full each drive is: statvfs, rclone mounts, `rclone about` for cloud folders
+    fileops.py             copy/move/delete jobs; records them for the History tab, and undoes them
     watcher.py             auto-refresh                   terminal.py (shell back-ends), platform_ops.py
     cloud_providers.py     finds OneDrive/Dropbox/... folders; keep-on-device / free-up-space
     devices.py             drives, mounts, phones, cloud storage -> Drives / Network / Cloud
@@ -348,7 +395,7 @@ explorer/
     breadcrumb.py  sidebar.py  terminal_widget.py  terminal_pane.py  statusbar.py
     main_window.py  menubar.py  context_menu.py  dialogs.py  icons.py
     qt_messages.py         Qt's own warnings -> our log; known-harmless ones (desktop portal) hushed
-    utility/               utility tabs: base.py (UtilityTab + header), search_tab.py, rename_tab.py
+    utility/               utility tabs: base.py (UtilityTab + header), search_tab.py, rename_tab.py, history_tab.py
     theme.py               applies a theme + the chosen fonts: Qt palette + style sheet for the window chrome
     font_picker.py         drop-down of installed fonts (all, or monospace only), each shown in its own face
     themes.py              the 50 colour themes as data, + contrast rules (no Qt)
@@ -399,6 +446,8 @@ python tests/test_devices.py       # live drives/mounts/cloud; does real rclone 
 python tests/test_themes.py        # contrast rules for every theme, no Qt warnings; font choices apply everywhere
 python tests/test_search.py        # index search == slow reference search (297 combinations), contents, speed
 python tests/test_rename.py        # every rename rule, conflict checks, swaps/chains/undo on disk
+python tests/test_drive_usage.py   # drive bars: disk / rclone mount / rclone about, cache (rclone faked; --real asks yours)
+python tests/test_history.py       # History: recording, undo of every kind, never overwriting, size budget
 python tests/test_gui.py           # the real interface, no screen needed (~70 checks)
 python tests/test_gui.py --shots   # ...and save screenshots to tests/screenshots/
 ```

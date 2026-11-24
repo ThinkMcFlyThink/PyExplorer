@@ -21,11 +21,11 @@ MENUS = [
                ("Sort by", ["sort.name", "sort.size", "sort.type", "sort.modified", "-", "view.sort_desc",
                             "view.folders_first"]),
                ("Theme", "@themes"),
-               "-", "window.sidebar", "window.terminal", "window.split", "window.toolbar", "window.statusbar",
+               "-", "window.sidebar", "view.drive_usage", "window.terminal", "window.split", "window.toolbar", "window.statusbar",
                "window.fullscreen", "-", "view.refresh"]),
     ("&Go", ["go.back", "go.forward", "go.up", "go.home", "go.computer", "go.location", "-",
              "tab.next", "tab.prev", "tab.to_other", "panel.switch"]),
-    ("&Tools", ["edit.search", "tools.rename", "tools.update_index", "-", "tools.terminal_external", "-",
+    ("&Tools", ["edit.search", "tools.rename", "tools.history", "tools.update_index", "-", "tools.terminal_external", "-",
                 "net.new", "net.logins", "-", "tools.preferences"]),
     ("&Help", ["help.shortcuts", "help.about"]),
 ]

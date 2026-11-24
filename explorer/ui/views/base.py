@@ -50,7 +50,33 @@ class FileDelegate(QStyledItemDelegate):
             if index.row() == getattr(view, "_hover_row", -1) and \
                     not option.state & QStyle.StateFlag.State_Selected:
                 painter.fillRect(option.rect, QColor(view.ctx.theme.palette.get("hover", "#888888")))
+        usage = self._drive_usage(view, index)
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        if usage is not None and not selected and view.mode != "icons":
+            self._usage_bar(view, painter, option.rect, usage)                    # behind the name
         super().paint(painter, option, index)
+        if usage is not None and view.mode == "icons":                            # a slim bar under the name
+            r = option.rect
+            self._usage_bar(view, painter, r.adjusted(6, r.height() - 9, -6, -2), usage)
+        elif usage is not None and selected:                                      # over the selection colour
+            self._usage_bar(view, painter, option.rect, usage, on_top=True)
+
+    @staticmethod
+    def _drive_usage(view, index):
+        """Computer view: how full the drive in this row is (Name column only)."""
+        model = index.model()
+        entry = model.entry(index) if hasattr(model, "entry") else None
+        if entry is None or entry.parent != "computer://" or not getattr(view, "ctx", None):
+            return None
+        columns = getattr(model, "columns", None)
+        if columns and view.mode in ("details", "tree") and columns[index.column()] != "name":
+            return None
+        return view.ctx.drive_usage.get(entry.path) if view.ctx.drive_usage else None
+
+    @staticmethod
+    def _usage_bar(view, painter, rect, usage, on_top: bool = False) -> None:
+        from ..usage_bar import paint_usage_bar
+        paint_usage_bar(painter, rect, usage.fraction, view.ctx.theme.palette, on_top=on_top)
 
 
     def setEditorData(self, editor, index) -> None:

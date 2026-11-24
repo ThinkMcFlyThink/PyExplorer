@@ -31,6 +31,7 @@ DEFAULTS: Dict[str, Any] = {
         "show_sidebar": True,
         "show_statusbar": True,
         "show_toolbar": True,
+        "drive_usage": True,      # bars showing how full each drive is (sidebar + Computer view)
     },
     "view": {
         "mode": "details",        # icons | list | details | tree  (global for all tabs)
@@ -75,6 +76,11 @@ DEFAULTS: Dict[str, Any] = {
         "max_index_entries": 8_000_000,   # memory cap (about 75 bytes per entry)
         "workers": 0,             # parallel readers for NETWORK folders (0 = automatic)
         "live": True,             # search as you type
+    },
+    "history": {
+        # The History tab (Ctrl+H): renames, moves, copies, deletes... Saved in history.json
+        # within a size budget (see core/file_history.py); False = forget it all on close.
+        "keep": True,
     },
     "window": {
         # Qt's own saved window geometry and dock/toolbar layout (base64 text).

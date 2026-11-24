@@ -2,7 +2,7 @@
 Utility tabs: tools that open in a tab next to the folder tabs.
 
     create(kind, panel, ctx, state)    -> a new utility tab
-    KINDS                              -> {"search": SearchTab, "rename": RenameTab}
+    KINDS                              -> {"search": SearchTab, "rename": RenameTab, "history": HistoryTab}
 
 Adding a utility = write a UtilityTab subclass (see base.py) and add it to
 ``_REGISTRY`` below. The panel, the session and "reopen closed tab" handle
@@ -17,6 +17,7 @@ from .base import UtilityTab
 _REGISTRY = {
     "search": ("explorer.ui.utility.search_tab", "SearchTab"),
     "rename": ("explorer.ui.utility.rename_tab", "RenameTab"),
+    "history": ("explorer.ui.utility.history_tab", "HistoryTab"),
 }
 
 

@@ -291,6 +291,18 @@ class SymbolIconEngine(_PaintedEngine):
             path.lineTo(pt(13, 3))
             path.moveTo(pt(10, 13))
             path.lineTo(pt(13, 13))
+        elif self.shape == "history":                        # a clock with a "going back" arrow
+            box = QRectF(pt(2.5, 2.5), pt(13.5, 13.5))
+            path.arcMoveTo(box, 150)
+            path.arcTo(box, 150, -300)
+            start = pt(8 - 5.5 * 0.866, 8 - 5.5 * 0.5)          # where the arc begins (150 degrees)
+            path.moveTo(start)
+            path.lineTo(start + QPointF(0.2 * s, 3.0 * s))
+            path.moveTo(start)
+            path.lineTo(start + QPointF(2.9 * s, 0.6 * s))
+            path.moveTo(pt(8, 5))
+            path.lineTo(pt(8, 8))
+            path.lineTo(pt(10.3, 9.6))
         elif self.shape == "help":
             p.drawEllipse(QRectF(pt(2, 2), pt(14, 14)))
             path.moveTo(pt(6.2, 6.4))

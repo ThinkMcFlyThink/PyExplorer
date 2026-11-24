@@ -110,6 +110,7 @@ class BrowserTab(QWidget):
             bus.subscribe(Topics.FOLDER_COLORS_CHANGED, lambda **_: self._refresh_look()),
             bus.subscribe(Topics.CLIPBOARD_CHANGED, lambda **_: self._refresh_look()),
             bus.subscribe(Topics.DEVICES_CHANGED, self._on_devices_changed),
+            bus.subscribe(Topics.DRIVE_USAGE_CHANGED, self._on_drive_usage),
         ]
         self.breadcrumb.set_path(self.path)
         self.ensure_view()
@@ -313,6 +314,11 @@ class BrowserTab(QWidget):
         if parent:
             self.navigate(parent, select=[self.path])     # re-select the folder we came from
 
+    def _on_drive_usage(self, **_) -> None:
+        """The Computer view shows how full each drive is: repaint when a number arrives."""
+        if self.path.startswith("computer://") and self.view is not None:
+            self.view.viewport().update()
+
     def _on_devices_changed(self, **_) -> None:
         """A drive/mount/cloud folder came or went: the Computer view lists them."""
         if self.path.startswith("computer://"):
@@ -459,7 +465,7 @@ class BrowserTab(QWidget):
             return "This folder is empty"
         if self.filter_text.strip():
             return "No items match the filter"
-        return "Only hidden items here\n(press Ctrl+H to show them)"
+        return "Only hidden items here\n(press Ctrl+Shift+H to show them)"
 
     def _set_message(self, text: str) -> None:
         self._message = text
