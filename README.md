@@ -56,7 +56,9 @@ pip install -r requirements.txt
 | **Network** | **SMB/Samba** (TrueNAS, Synology, QNAP, Windows PCs), SFTP, FTP and FTPS, saved like WinSCP's site manager (Connect… button), or just typed in the address bar. Copy, paste, drag, search and the filter work like on any other folder. Shares already mounted by your system (Nemo/GVFS, `/etc/fstab`, `mount`, rclone) show up by themselves under Computer and in the sidebar's Network section. See [Network shares](#network-shares-smb--truenas). |
 | **Files** | Copy/cut/paste **shared with other file managers** (Explorer, Finder, Dolphin, Nautilus), drag & drop **to and from other apps**, inline rename (F2), trash (Del) / permanent delete (Shift+Del), new folder/file, conflict dialog (replace / skip / keep both), progress + cancel in the status bar, properties with folder size and SHA-256. |
 | **Session** | Tabs (including Search, Rename and History tabs with their settings), panels, split, per-tab history, scroll position, selection, expanded tree folders, window/dock layout and terminal state are all restored on the next start, and autosaved every 20 s. |
-| **Other** | Back/forward/up (also mouse back/forward buttons), show hidden (Ctrl+Shift+H or Alt+.), sort by name/size/type/date with folders first, auto-refresh when folders change on disk, **50 colour themes** (see [Themes](#themes)), a "Computer" view of drives + connections, a preferences dialog, and an **editable keyboard-shortcuts dialog (F1)**. |
+| **Toolbar** | Buttons for what you do most: *New ▾*, cut/copy/paste, rename, trash, *Sort ▾*, the view modes as one switch, hidden files, sidebar/split/terminal, the utility tabs and a search box. **Customizable**: right-click it, or *Settings → Toolbar* to add, remove and reorder buttons. See [The toolbar](#the-toolbar). |
+| **Settings (Ctrl+,)** | A **Settings tab** with every option, applied as you change it, a search box that finds any setting, ↺ to put one back, editable **keyboard shortcuts** (F1), export / import / reset. See [Settings](#settings-ctrl). |
+| **Other** | Back/forward/up (also mouse back/forward buttons), show hidden (Ctrl+Shift+H or Alt+.), sort by name/size/type/date with folders first, auto-refresh when folders change on disk, **50 colour themes** (see [Themes](#themes)), a "Computer" view of drives + connections, and the current folder's name in the window title. |
 
 ### Name search syntax
 
@@ -93,7 +95,8 @@ searches the whole computer.
 
 - **Look in:** any number of folders, drives, network shares or cloud folders
   (*+ Folder…*, *+ Drive*), or tick **Whole computer**: every local drive, plus network
-  drives if you allow it in *Preferences → Search*.
+  drives if you allow it in *Settings → Search*. The toolbar's search box (type, then Enter)
+  opens a Search tab for the current folder too.
 - **Name:** searched **as you type**, using the syntax above.
 - **Contains:** text inside the files. Press Enter to run it; *Aa* matches case, *.\**
   makes it a regular expression, *W* matches whole words only. Results get a
@@ -121,7 +124,7 @@ is the same idea that makes Voidtools' Everything fast. Measured on a test machi
 **Keeping it current:** the index is saved in `~/.cache/pyexplorer/index`. Changes made
 by PyExplorer, and changes in folders open in a tab, are patched in within about 2
 seconds. Anything else is caught by a background re-read when the index is older than
-*Preferences → Search → Re-read after (minutes)* (default 30). Searches still answer
+*Settings → Search → Re-read the disk after* (default 30 minutes). Searches still answer
 instantly from the old index in the meantime, and open Search tabs refresh by themselves
 when the new one is ready. *Tools → Update search index* (or the button in the tab)
 re-reads now. Network folders are indexed too, but only for the session.
@@ -168,7 +171,7 @@ PyExplorer can't replace copies made by *other* programs.
 - **Verified by default.** Each file is checksummed while it's copied, then the copy is read
   back and checked against it. On local drives the copy is flushed to disk and dropped from the
   OS cache first, so the check reads the disk rather than memory. The default checksum is BLAKE2b; xxHash3,
-  MD5, SHA-1 and SHA-256 are in Preferences. Verification can be turned off there.
+  MD5, SHA-1 and SHA-256 are in *Settings → Transfers*. Verification can be turned off there.
 - **One bad file doesn't stop the rest.** It gets a red ✗ with the reason, and the next one starts.
   A folder with failures inside gets a ✗ too, saying how many failed. Only a **full drive**
   stops a transfer, and then the files not reached are marked *not copied*.
@@ -185,14 +188,14 @@ PyExplorer can't replace copies made by *other* programs.
   The list is kept between sessions in `transfers.json`. Full file lists are saved for the newest
   transfers, up to 50,000 rows. Failed and not-copied files are always saved.
 - **Window or tab.** The window is the default, and it **stays open when done** (both changeable
-  under *Preferences → Transfers*). *Open as tab* moves it into the main window as a
+  under *Settings → Transfers*). *Open as tab* moves it into the main window as a
   Transfers tab, **shaded like a progress bar** while copying. *Open in a window* moves it back.
   A transfer that starts shows the window or tab without taking the keyboard focus.
 - **Taskbar progress**, in window or tab mode: Windows (the taskbar button), KDE Plasma /
   GNOME docks / Plank through the Unity launcher API (needs PyExplorer installed with a
   `pyexplorer.desktop` file), and Cinnamon / MATE / Xfce through the XApp window hint.
 - Quitting while something is copying asks first.
-- *Preferences → Transfers → Copy and move with: Simple copier* switches back to the older copier,
+- *Settings → Transfers → Copy and move with: The simple copier* switches back to the older copier,
   which shows only status-bar progress and doesn't verify.
 
 ### The History tab (Ctrl+H)
@@ -228,7 +231,7 @@ when PyExplorer closes. *Clear history* empties the list. It never touches your 
 
 ## Themes
 
-*View → Theme* (or *Preferences → Appearance*) offers **System** (your desktop's own look)
+*View → Theme* (or *Settings → Appearance*) offers **System** (your desktop's own look)
 plus 50 colour themes in *Dark* and *Light* groups. Most are modelled on popular VS Code
 themes: Dark Modern, Dark+, One Dark Pro, Dracula, Monokai (+ Pro), GitHub (Dark, Dimmed,
 Light), Tokyo Night (Night, Storm, Light), Catppuccin (Mocha, Macchiato, Frappé, Latte),
@@ -237,21 +240,71 @@ Cobalt2, Shades of Purple, SynthWave '84, Rosé Pine (+ Moon, Dawn), Everforest,
 Horizon, Andromeda, Poimandres, Moonlight, Panda, Oceanic Next, Vitesse, Nord, Solarized,
 Quiet Light, One Light, Light Modern…
 
-**Fonts:** *Preferences → Appearance* has a **Font** picker listing every font installed
+**Fonts:** *Settings → Appearance* has an **Interface font** picker listing every font installed
 on your computer, each shown in its own typeface. It changes the font of the whole
 interface: menus, sidebar, tabs, file views, dialogs and status bar. The terminal has its
-own **Terminal font** picker, which lists only monospace fonts, since a terminal needs
+own font (*Settings → Terminal*), which lists only monospace fonts, since a terminal needs
 equal-width letters. *Font size* applies to both. "System default" follows your desktop's
 font settings.
 
 Every theme is drawn the same way, VS Code style:
 - the sidebar, toolbar and tab strip share one colour; the current tab, address bar and
   file list share another, so the open folder reads as one sheet;
-- areas are separated by 1-pixel lines, and the current tab of the active panel gets an
-  accent line along its top;
-- the back/forward/up/refresh icons are drawn in the theme's own colours, so they stay
-  readable even when your desktop's icon set is meant for the opposite light/dark mode;
+- areas are separated by 1-pixel lines (splitters included), and the current tab of the
+  active panel gets an accent line along its top;
+- every text field, drop-down, number box and button in a row has the same height, worked
+  out from the font, so rows line up at any font size; column titles line up with their
+  column's text (sizes on the right);
+- the title bar follows the theme's light or dark mode (Windows 11, macOS, GNOME/KDE);
 - the terminal uses the theme's own 16 colours.
+
+**Icons:** toolbar, menu and button icons are PyExplorer's own **line icons**, drawn in the
+theme's colours, so they look the same on Linux, Windows and macOS and stay readable even when
+your desktop's icon set is meant for the opposite light/dark mode. They are drawn as vectors,
+so they stay sharp at any size and screen scaling (125 %, 150 %, 200 %…). Checkable commands
+show a check mark in menus, so you always see whether they are on. *Settings → Appearance →
+Toolbar and menu icons* can switch to your desktop's icon theme instead.
+
+## The toolbar
+
+    [+ New v] | cut copy paste rename trash | [Sort v] [icons|list|details|tree] hidden |
+      sidebar split terminal | rename history transfers  .......  [Search Downloads] server settings
+
+*New ▾* (folder, empty file, tab) · cut, copy, paste, rename, move to trash · *Sort ▾* and the
+four view modes as one switch · hidden files · sidebar, split view, terminal · Bulk rename,
+History, Transfers · a search box (type a name, press Enter: a Search tab for this folder) ·
+Connect to server · Settings. Every button's tooltip says its shortcut. Buttons that toggle
+something are tinted while it is on.
+
+**Make it yours:** right-click the toolbar for *Labels* (icons only, icons and labels, labels
+under icons, or icons with labels on the menu buttons), *Icon size*, and *Customize toolbar…*,
+which opens *Settings → Toolbar*: add any command (there are about 70), remove, reorder (drag,
+or *Move up/down*), add separators or a flexible space, or *Reset*. Changes show at once.
+
+## Settings (Ctrl+,)
+
+*Tools → Settings…* (Ctrl+,, or ⚙ on the toolbar) opens the **Settings tab**: every option
+PyExplorer has, on twelve pages: Appearance, Toolbar, Views, Behaviour, Sidebar, Terminal,
+Network, Search, Transfers, History, Keyboard and Advanced.
+
+- **Changes apply straight away.** There is no OK button: switch a theme, a font, the view
+  mode, the date format… and you see it.
+- **Find a setting:** type in the search box (e.g. `trash`, `font`, `date`, `ctrl+shift`)
+  to see the matching settings from every page, and matching commands on the Keyboard page.
+- **↺** appears next to a setting you changed: click it to put back the default.
+- **Keyboard** (F1): every command, grouped like the menus. Double-click a shortcut and press
+  the new keys; Backspace leaves it without one. Keys another command used are *moved* (two
+  commands sharing keys would both stop working), and the page says so.
+- **Advanced:** open the settings folder or `settings.json`, **export** your settings to a file
+  (e.g. for another computer), **import** them, or **reset** everything (your sidebar,
+  connections, history and tabs are kept).
+
+Options added with the Settings tab: date format (relative, ISO, day-first, month-first,
+or your own `strftime` pattern), file size units (1024 like Windows, 1000 like macOS/GNOME/KDE,
+or KiB), striped rows on/off, where new tabs open (next to the current one or at the end) and
+what they show (the current folder or home), reopening your tabs at start-up (off: start at
+home, last time's tabs stay in Ctrl+Shift+T), the folder-watch interval, the maximum number
+of search results, and the toolbar and icon styles.
 
 Each theme is a dozen key colours in `ui/themes.py`. The rest (borders, hover, row striping,
 inputs, scroll bars, terminal colours) is derived by the same rules for every theme. Those
@@ -267,14 +320,24 @@ it's removed. The status bar says what was connected or removed.
 | Sidebar section | What appears there |
 |---|---|
 | **Cloud** | rclone mounts of cloud remotes (OneDrive, Google Drive, Dropbox, pCloud, MEGA, Proton Drive, S3…), onedriver, pCloud Drive, Google Drive from GNOME Online Accounts, and the folders of sync apps: the `onedrive` client, Dropbox, Nextcloud/ownCloud, Insync, MEGA. On Windows/macOS: every registered sync app. Hidden when there is none. |
-| **Drives** | Disks and partitions, USB sticks and SD cards, DVDs, phones and cameras (MTP), and other mounts in `/mnt` or your home folder (mergerfs, gocryptfs…). |
+| **Drives** | Disks and partitions, USB sticks and SD cards, DVDs, phones and cameras (MTP), and other mounts in `/mnt` or your home folder (mergerfs, gocryptfs…). On Linux, disks that are plugged in but **not mounted** are listed too, greyed out with a faded icon. Click one to mount it, as in Nemo. |
 | **Network** | Your saved connections, plus SMB/NFS/SSHFS mounts, rclone mounts of SFTP/SMB/FTP/WebDAV remotes, shares opened in Nemo, and `/etc/fstab` shares (greyed "not mounted" until opened). |
 
-**How full is it?** Every drive in the sidebar and in the Computer view has a bar behind its
-name in the theme's accent colour. The bar is stronger above 90% full. Point at the drive to see
-"X free of Y". The Computer view's Size column shows the free space. Turn the bars off under
-*View → Drive usage bars*. The numbers are measured in the background, so a slow or stuck network
-share never holds up the window.
+**Mounting (Linux).** Drives that are there but not mounted (a second internal disk, the Windows
+partition, a USB stick that wasn't auto-mounted) show greyed in the sidebar and as *Drive (not
+mounted)* in the Computer view. Opening one mounts it through UDisks2 (`udisksctl`), the same
+service Nemo uses. It goes under `/media/<you>/`, and the desktop asks for your password if the
+system requires it. Right-click a mounted drive for **Unmount**, or **Eject (safe to remove)** for USB drives.
+System partitions (EFI, Microsoft reserved, Windows recovery, swap, RAID/LVM members, locked
+encrypted volumes, snap images) are never listed. The status bar says *Mounted*, *Unmounted* or
+*Plugged in (not mounted)*. Windows only shows volumes that have a drive letter, like Explorer.
+macOS isn't covered yet.
+
+**How full is it?** Every drive in the sidebar and in the Computer view has a thin bar under
+its name, filled in the theme's accent colour, or its error colour (usually red) above 90 % full.
+Point at the drive to see "X free of Y". The Computer view's Size column shows the free space.
+Turn the bars off under *View → Drive usage bars* (or *Settings → Sidebar*). The numbers are
+measured in the background, so a slow or stuck network share never holds up the window.
 
 | Kind of drive | Where the numbers come from |
 |---|---|
@@ -328,8 +391,8 @@ SFTP and FTP.
   box says which one is in use.
 - A login is saved only once the server has **accepted** it, so a typo is never remembered.
 - If the password changes on the NAS, you are simply asked again, and the new one is saved.
-- **Forget** a login with *Tools → Saved network logins…*, or right-click the server in
-  the sidebar → *Forget saved login*.
+- **Forget** a login on *Settings → Network* (also *Tools → Saved network logins…*), or
+  right-click the server in the sidebar → *Forget saved login*.
 - Older versions kept "remembered" passwords as plain text in `connections.json`.
   They are moved into the keyring automatically the first time this version starts.
 
@@ -346,7 +409,7 @@ picks the best way to hand it over:
    accept web addresses (mpv, VLC, Celluloid, browsers…). Also used for SFTP/FTP files.
    Only your own computer can reach it, and it stops when PyExplorer closes.
 3. **Download a copy first**, only if neither is possible (or if you choose it in
-   *Preferences → Network*).
+   *Settings → Network*).
 
 On Linux, right-click a file → **Open With ▸** lists every installed app for that file
 type (your default first), like Nemo.
@@ -378,6 +441,7 @@ They are all plain JSON: `settings.json`, `categories.json`, `folder_colors.json
 `saved_logins.json` lists which servers have a remembered login (no passwords; those are in
 the system keyring, or in `credentials.json` if there is no keyring).
 Set `PYEXPLORER_CONFIG_DIR` to use another folder (e.g. a portable install).
+*Settings → Advanced* opens the folder or `settings.json`, and exports / imports your settings.
 
 ## How the code is organised
 
@@ -392,6 +456,7 @@ explorer/
     events.py              EventBus (publish/subscribe) + list of event topics
     tasks.py               thread/process pools, cancel tokens, UI-thread dispatcher, jobs
     settings.py            all settings + defaults          storage.py   atomic JSON files
+    settings_schema.py     the Settings tab as data: pages -> groups -> settings (kind, help, apply)
     fileinfo.py            FileEntry (one file/folder)      query.py     search/filter language
     search_spec.py         what a search asks for (locations, name, contents, filters)
     rename_rules.py        the Rename tab's rules + conflict checks (pure functions)
@@ -413,6 +478,7 @@ explorer/
     content_search.py      text inside files (memory-mapped regex; chunked for network files)
     bulk_rename.py         safe batch renaming (swaps, chains, case-only) + undo
     transfer_engine.py     PyExplorer's copy/move: plan, space check, copy+checksum, verify, continue on errors
+    block_devices.py       disks plugged in but not mounted (lsblk); mount / unmount / eject (udisksctl)
     drive_usage.py         how full each drive is: statvfs, rclone mounts, `rclone about` for cloud folders
     fileops.py             copy/move/delete jobs; records them for the History tab, and undoes them
     watcher.py             auto-refresh                   terminal.py (shell back-ends), platform_ops.py
@@ -433,8 +499,13 @@ explorer/
     tab_container.py       tab bar + "+" button + pages (lines up on every style)
     breadcrumb.py  sidebar.py  terminal_widget.py  terminal_pane.py  statusbar.py
     main_window.py  menubar.py  context_menu.py  dialogs.py  icons.py
+    toolbar.py             the main toolbar: its layout as data, New/Sort/view-switch/search widgets
+    symbols.py             PyExplorer's line icons: one small drawing function per icon
+    settings/              the Settings tab: tab.py (pages + search), editors.py (one per kind),
+                           keyboard.py, toolbar_page.py, logins.py (the pages that are more than rows)
     qt_messages.py         Qt's own warnings -> our log; known-harmless ones (desktop portal) hushed
     utility/               utility tabs: base.py (UtilityTab + header), search_tab.py, rename_tab.py, history_tab.py
+                           (+ the registry that also lists the Transfers and Settings tabs)
     transfers/             the transfer window: panel.py, files_model.py, speed_plot.py, window.py, tab.py, controller.py
     taskbar.py             taskbar / dock progress (Windows, Unity launcher API, XApp)
     theme.py               applies a theme + the chosen fonts: Qt palette + style sheet for the window chrome
@@ -464,10 +535,13 @@ Qt view draws only the visible rows.
 
 | You want… | Do this |
 |---|---|
-| A new view mode | Subclass one in `ui/views/` (or combine `ViewBehaviour` with any Qt item view) and add it to `VIEW_TYPES` in `ui/views/registry.py`. It appears in the toolbar and menus, and gets a Ctrl+<number> shortcut automatically. |
+| A new view mode | Subclass one in `ui/views/` (or combine `ViewBehaviour` with any Qt item view) and add it to `VIEW_TYPES` in `ui/views/registry.py`. It appears in the toolbar's view switch, the menus and Settings, and gets a Ctrl+<number> shortcut automatically. |
 | A new location type (WebDAV, S3, zip…) | Implement `vfs/base.FileSystem` and call `ctx.vfs.register_scheme("webdav", YourClass)`. Copy/paste, search and the views work with it automatically. |
-| A new command + shortcut | Add a method to `commands.py`, then one `reg.add(...)` line in `actions.register_all`. Add the id to `ui/menubar.py` to show it in a menu. |
-| A new setting | Add it to `DEFAULTS` in `core/settings.py` (+ one line in `PREFERENCES` in `ui/dialogs.py` to show it in the dialog). |
+| A new command + shortcut | Add a method to `commands.py`, then one `reg.add(...)` line in `actions.register_all` (with a line icon). Add the id to `ui/menubar.py` to show it in a menu. It can be put on the toolbar and given other keys in Settings automatically. |
+| A new setting | Add it to `DEFAULTS` in `core/settings.py`, plus one `Setting(...)` line in `core/settings_schema.py` to show it in the Settings tab (pick its `kind`; name an `apply` command if it must take effect at once). `tests/test_settings.py` checks that every setting is listed. |
+| A new icon | One small function decorated with `@shape("name")` in `ui/symbols.py`, drawn on a 16 × 16 grid; then `ctx.icons.symbol("name")` anywhere. |
+| A new toolbar widget | A factory in `WIDGETS` in `ui/toolbar.py` (like the search box); it appears in *Settings → Toolbar*. |
+| A new Settings page | A `Page(...)` in `core/settings_schema.py`; for more than rows of settings, a widget in `ui/settings/` named by the page's `custom` (see `tab.py`). |
 | A new theme | Add a spec (about a dozen colours) to `SPECS` in `ui/themes.py`. `tests/test_themes.py` checks its contrast. |
 | A new utility tab (e.g. "Compare folders") | Subclass `ui/utility/base.UtilityTab` (build the widgets, `get_state`/`restore`) and add it to `_REGISTRY` in `ui/utility/__init__.py`. The tab bar, styling, session and Ctrl+Shift+T then work for it. |
 | A new rename rule | Add fields to `RenameRules` and a step to `new_name` in `core/rename_rules.py`, then a card in `ui/utility/rename_tab.py`. |
@@ -485,8 +559,10 @@ python tests/test_open_remote.py   # streaming, mounting, Open With; plays a vid
 python tests/test_saved_logins.py  # remembered logins (keyring + fallback file, migration, SMB)
 python tests/test_devices.py       # live drives/mounts/cloud; does real rclone + disk-image mounts
 python tests/test_themes.py        # contrast rules for every theme, no Qt warnings; font choices apply everywhere
+python tests/test_settings.py      # Settings tab (every setting listed, search, apply, ↺), toolbar, icons, formats
 python tests/test_search.py        # index search == slow reference search (297 combinations), contents, speed
 python tests/test_rename.py        # every rename rule, conflict checks, swaps/chains/undo on disk
+python tests/test_block_devices.py # unmounted drives: which partitions, names, mount/unmount (udisksctl faked)
 python tests/test_drive_usage.py   # drive bars: disk / rclone mount / rclone about, cache (rclone faked; --real asks yours)
 python tests/test_transfers.py     # transfer engine: verify, failures, full drive, space check, moves, pause, log
 python tests/test_history.py       # History: recording, undo of every kind, never overwriting, size budget

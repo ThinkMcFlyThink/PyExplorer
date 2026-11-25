@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, QPoint, QRect, Qt, QTimer
+from PySide6.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, QPoint, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QDrag, QFont, QFontMetrics
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QLineEdit, QStyledItemDelegate
 
@@ -36,9 +36,14 @@ class FileDelegate(QStyledItemDelegate):
       (overlapping the next column), a short one made them narrower."""
 
     def sizeHint(self, option, index):
-        fixed = getattr(self.parent(), "fixed_item_size", None)
+        view = self.parent()
+        fixed = getattr(view, "fixed_item_size", None)
         size = fixed() if fixed is not None else None
-        return size if size is not None else super().sizeHint(option, index)
+        if size is not None:
+            return size
+        size = super().sizeHint(option, index)
+        extra = view.extra_row_space() if hasattr(view, "extra_row_space") else 0
+        return QSize(size.width(), size.height() + extra) if extra else size
 
     def paint(self, painter, option, index) -> None:
         from PySide6.QtGui import QColor
@@ -50,16 +55,10 @@ class FileDelegate(QStyledItemDelegate):
             if index.row() == getattr(view, "_hover_row", -1) and \
                     not option.state & QStyle.StateFlag.State_Selected:
                 painter.fillRect(option.rect, QColor(view.ctx.theme.palette.get("hover", "#888888")))
-        usage = self._drive_usage(view, index)
-        selected = bool(option.state & QStyle.StateFlag.State_Selected)
-        if usage is not None and not selected and view.mode != "icons":
-            self._usage_bar(view, painter, option.rect, usage)                    # behind the name
         super().paint(painter, option, index)
-        if usage is not None and view.mode == "icons":                            # a slim bar under the name
-            r = option.rect
-            self._usage_bar(view, painter, r.adjusted(6, r.height() - 9, -6, -2), usage)
-        elif usage is not None and selected:                                      # over the selection colour
-            self._usage_bar(view, painter, option.rect, usage, on_top=True)
+        usage = self._drive_usage(view, index)
+        if usage is not None:                                 # Computer view: a thin bar under the drive's name
+            self._usage_bar(view, painter, option, index, usage)
 
     @staticmethod
     def _drive_usage(view, index):
@@ -73,10 +72,20 @@ class FileDelegate(QStyledItemDelegate):
             return None
         return view.ctx.drive_usage.get(entry.path) if view.ctx.drive_usage else None
 
-    @staticmethod
-    def _usage_bar(view, painter, rect, usage, on_top: bool = False) -> None:
-        from ..usage_bar import paint_usage_bar
-        paint_usage_bar(painter, rect, usage.fraction, view.ctx.theme.palette, on_top=on_top)
+    def _usage_bar(self, view, painter, option, index, usage) -> None:
+        from PySide6.QtCore import QRectF
+        from PySide6.QtWidgets import QStyle, QStyleOptionViewItem
+        from ..usage_bar import BAR_HEIGHT, bar_rect, paint_usage_bar, text_margin
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        if view.mode == "icons":                              # under the (one or two line) name, centred
+            r = QRectF(option.rect)
+            rect = QRectF(r.left() + 12, r.bottom() - 4 - BAR_HEIGHT, r.width() - 24, BAR_HEIGHT)
+        else:
+            opt = QStyleOptionViewItem(option)
+            self.initStyleOption(opt, index)
+            text = view.style().subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, view)
+            rect = bar_rect(text, option.rect, text_margin(view.style(), view))
+        paint_usage_bar(painter, rect, usage.fraction, view.ctx.theme.palette, selected=selected)
 
 
     def setEditorData(self, editor, index) -> None:
@@ -308,8 +317,14 @@ class ViewBehaviour:
         self.apply_zoom()
 
     def apply_zoom(self) -> None:
-        from PySide6.QtCore import QSize
         self.setIconSize(QSize(self.icon_px, self.icon_px))
+
+    def extra_row_space(self) -> int:
+        """Rows in the Computer view are a little taller: room for each drive's usage bar."""
+        from ..usage_bar import ROW_EXTRA
+        usage = self.ctx.drive_usage
+        return ROW_EXTRA if getattr(self.host, "path", "") == "computer://" and usage is not None and \
+            usage.enabled else 0
 
     # ======================================================================
     # Mouse & keyboard

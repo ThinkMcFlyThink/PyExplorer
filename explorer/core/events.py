@@ -42,6 +42,7 @@ class Topics:
     DRIVE_USAGE_CHANGED = "drives.usage_changed"     # path=str (services/drive_usage.py measured a drive)
     TRANSFERS_CHANGED = "transfers.changed"          # event=started|planned|no_space|finished, transfer=Transfer
     HISTORY_CHANGED = "history.changed"              # the History tab's list changed (core/file_history.py)
+    FORMAT_CHANGED = "view.format_changed"           # dates / sizes are written differently now (core/formatting.py)
 
 
 class EventBus:

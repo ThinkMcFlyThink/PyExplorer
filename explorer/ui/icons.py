@@ -7,6 +7,9 @@ IconProvider - every icon in the app comes from here.
   icon theme via the file's MIME type). Where none exists we draw a page
   with a coloured band and the extension (``FileIconEngine``).
 * Drives, network locations and "Computer" use Qt's standard icons.
+* Toolbar, menu and button icons are PyExplorer's own line icons
+  (``symbol()``, drawn by ui/symbols.py), so they look the same on every OS
+  and follow the theme's colours.
 
 All icons are cached, so asking for the icon of 100,000 files is cheap.
 """
@@ -15,15 +18,15 @@ from __future__ import annotations
 import os
 from typing import Dict, Optional, Tuple
 
-from PySide6.QtCore import QFileInfo, QPointF, QRect, QRectF, QSize, Qt
+from PySide6.QtCore import QFileInfo, QMimeDatabase, QPointF, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import (QColor, QFont, QIcon, QIconEngine, QLinearGradient, QPainter, QPainterPath,
                            QPen, QPixmap)
-from PySide6.QtCore import QMimeDatabase
 from PySide6.QtWidgets import QApplication, QFileIconProvider, QStyle
 
 from ..core import cloud
 from ..core.fileinfo import FileEntry
 from ..core.platform_info import IS_LINUX
+from . import symbols
 from .theme import shade
 
 CATEGORY_COLORS = {
@@ -159,74 +162,65 @@ class FileIconEngine(_PaintedEngine):
             p.drawText(QRectF(pt(0.2, 0.58), pt(0.82, 0.80)), Qt.AlignmentFlag.AlignCenter, self.label[:4].upper())
 
 
-class ViewModeIconEngine(_PaintedEngine):
-    """Simple line drawings for the four view modes (used when there is no icon theme)."""
+class SymbolIconEngine(QIconEngine):
+    """A line icon from ui/symbols.py, drawn in the current theme's colours -
+    the desktop's icon set follows the DESKTOP theme, which may be light while
+    PyExplorer is dark, and differs from one OS to the next. Colours are read
+    at paint time, so a theme switch recolours every icon without rebuilding.
 
-    def __init__(self, mode: str) -> None:
-        super().__init__()
-        self.mode = mode
+        normal      the palette colour ``tint`` ("fg", or "accent" for utility tabs)
+        checked     the accent colour (toolbar toggles that are on)
+        selected    the selection's text colour (highlighted menu rows)
+        disabled    the dim text colour, faded
 
-    def clone(self):
-        return ViewModeIconEngine(self.mode)
+    With Settings -> Appearance -> Icons set to the desktop's icon theme, the
+    desktop's icon (``native``) is used instead wherever the theme has one.
+    """
 
-    def paint_icon(self, p: QPainter, r: QRectF, dim: bool) -> None:
-        s = min(r.width(), r.height())
-        x0, y0 = r.x() + (r.width() - s) / 2, r.y() + (r.height() - s) / 2
-        color = QColor("#8c95a6") if dim else QColor("#9aa6b8")
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(color)
-
-        def box(fx, fy, fw, fh):
-            p.drawRoundedRect(QRectF(x0 + s * fx, y0 + s * fy, s * fw, s * fh), s * 0.04, s * 0.04)
-        if self.mode == "icons":
-            for fx in (0.12, 0.56):
-                for fy in (0.12, 0.56):
-                    box(fx, fy, 0.32, 0.32)
-        elif self.mode == "list":
-            for fx in (0.1, 0.55):
-                for fy in (0.18, 0.44, 0.70):
-                    box(fx, fy, 0.08, 0.12)
-                    box(fx + 0.12, fy + 0.02, 0.22, 0.08)
-        elif self.mode == "details":
-            for fy in (0.16, 0.36, 0.56, 0.76):
-                box(0.1, fy, 0.1, 0.1)
-                box(0.26, fy + 0.02, 0.64, 0.06)
-        else:  # tree
-            for fx, fy in ((0.1, 0.14), (0.3, 0.36), (0.3, 0.58), (0.1, 0.80)):
-                box(fx, fy, 0.1, 0.1)
-                box(fx + 0.16, fy + 0.02, 0.74 - fx, 0.06)
-
-
-class SymbolIconEngine(_PaintedEngine):
-    """Simple line icons (back, forward, up, refresh, help) drawn in the
-    current theme's text colour, so they are readable on every theme -
-    the desktop's icon set follows the DESKTOP theme, which may be light
-    while PyExplorer is dark. In the "system" theme the desktop's own icon
-    (``native``) is used instead. Colours are read at paint time, so a theme
-    switch recolours them without rebuilding anything."""
-
-    def __init__(self, ctx, shape: str, native: QIcon, tint: str = "fg") -> None:
+    def __init__(self, ctx, shape: str, native: QIcon, tint: str = "fg", force: bool = False) -> None:
         super().__init__()
         self.ctx = ctx
         self.shape = shape
         self.native = native
-        self.tint = tint                        # palette colour to draw with: "fg" or "accent"
+        self.tint = tint
+        self.force = force                      # always ours (utility tab badges, the tab strip's "+")
+        self._cache: Dict[tuple, QPixmap] = {}
+
+    def clone(self):
+        return SymbolIconEngine(self.ctx, self.shape, self.native, self.tint, self.force)
 
     def _use_native(self) -> bool:
-        return self.ctx.theme.name == "system" and not self.native.isNull()
+        return (not self.force and not self.native.isNull()
+                and self.ctx.settings.get("appearance.icon_style", "line") == "system")
+
+    def _color(self, mode, state) -> QColor:
+        pal = self.ctx.theme.palette
+        if mode == QIcon.Mode.Disabled:
+            color = QColor(pal.get("fg_dim", "#888888"))
+            color.setAlphaF(0.45)
+            return color
+        if mode == QIcon.Mode.Selected:
+            return QColor(pal.get("select_fg", "#ffffff"))
+        if state == QIcon.State.On:
+            return QColor(pal.get("accent", "#3d8ee8"))
+        return QColor(pal.get(self.tint, "#888888"))
+
+    def actualSize(self, size: QSize, mode, state) -> QSize:
+        return size
 
     def pixmap(self, size: QSize, mode, state) -> QPixmap:
         if self._use_native():
             return self.native.pixmap(size, mode, state)
-        pal = self.ctx.theme.palette
-        key = (size.width(), size.height(), int(mode.value) if hasattr(mode, "value") else int(mode),
-               pal.get(self.tint, ""), pal.get("fg_dim", ""))
+        color = self._color(mode, state)
+        key = (size.width(), size.height(), color.rgba())
         pm = self._cache.get(key)
         if pm is None:
+            if len(self._cache) > 64:
+                self._cache.clear()
             pm = QPixmap(size)
             pm.fill(Qt.GlobalColor.transparent)
             p = QPainter(pm)
-            self.paint(p, QRect(0, 0, size.width(), size.height()), mode, state)
+            symbols.draw(p, QRectF(0, 0, size.width(), size.height()), self.shape, color)
             p.end()
             self._cache[key] = pm
         return pm
@@ -235,96 +229,7 @@ class SymbolIconEngine(_PaintedEngine):
         if self._use_native():
             self.native.paint(painter, rect, Qt.AlignmentFlag.AlignCenter, mode, state)
             return
-        super().paint(painter, rect, mode, state)
-
-    def paint_icon(self, p: QPainter, r: QRectF, dim: bool) -> None:
-        pal = self.ctx.theme.palette
-        color = QColor(pal.get("fg_dim" if dim else self.tint, "#888888"))
-        if dim:
-            color.setAlphaF(0.45)
-        s = min(r.width(), r.height()) / 16.0                   # drawn on a 16x16 grid
-        ox, oy = r.x() + (r.width() - 16 * s) / 2, r.y() + (r.height() - 16 * s) / 2
-
-        def pt(x: float, y: float) -> QPointF:
-            return QPointF(ox + x * s, oy + y * s)
-        pen = QPen(color, max(1.0, 1.5 * s))
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        p.setPen(pen)
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        path = QPainterPath()
-        if self.shape in ("back", "forward"):
-            sign = 1 if self.shape == "back" else -1
-            cx = 8
-            path.moveTo(pt(cx + 5 * sign, 8))
-            path.lineTo(pt(cx - 5 * sign, 8))
-            path.moveTo(pt(cx - 1 * sign, 4))
-            path.lineTo(pt(cx - 5 * sign, 8))
-            path.lineTo(pt(cx - 1 * sign, 12))
-        elif self.shape == "up":
-            path.moveTo(pt(8, 13))
-            path.lineTo(pt(8, 3))
-            path.moveTo(pt(4, 7))
-            path.lineTo(pt(8, 3))
-            path.lineTo(pt(12, 7))
-        elif self.shape == "refresh":
-            box = QRectF(pt(3, 3), pt(13, 13))
-            path.arcMoveTo(box, 60)
-            path.arcTo(box, 60, 290)
-            tip = pt(8 + 5 * 0.5, 8 - 5 * 0.866)             # end of the arc (60 degrees)
-            path.moveTo(tip)
-            path.lineTo(tip + QPointF(-3.2 * s, -0.6 * s))
-            path.moveTo(tip)
-            path.lineTo(tip + QPointF(0.4 * s, 3.1 * s))
-        elif self.shape == "search":                         # magnifier
-            p.drawEllipse(QRectF(pt(2.5, 2.5), pt(10.5, 10.5)))
-            path.moveTo(pt(9.6, 9.6))
-            path.lineTo(pt(13.5, 13.5))
-        elif self.shape == "rename":                         # a text cursor next to a line of text
-            path.moveTo(pt(2.5, 11))
-            path.lineTo(pt(8.5, 11))
-            path.moveTo(pt(2.5, 7.5))
-            path.lineTo(pt(7, 7.5))
-            path.moveTo(pt(11.5, 3))
-            path.lineTo(pt(11.5, 13))
-            path.moveTo(pt(10, 3))
-            path.lineTo(pt(13, 3))
-            path.moveTo(pt(10, 13))
-            path.lineTo(pt(13, 13))
-        elif self.shape == "transfer":                       # two arrows: there and back (copy / move)
-            path.moveTo(pt(2.5, 5.5))
-            path.lineTo(pt(13, 5.5))
-            path.moveTo(pt(10, 2.8))
-            path.lineTo(pt(13, 5.5))
-            path.lineTo(pt(10, 8.2))
-            path.moveTo(pt(13.5, 10.5))
-            path.lineTo(pt(3, 10.5))
-            path.moveTo(pt(6, 7.8))
-            path.lineTo(pt(3, 10.5))
-            path.lineTo(pt(6, 13.2))
-        elif self.shape == "history":                        # a clock with a "going back" arrow
-            box = QRectF(pt(2.5, 2.5), pt(13.5, 13.5))
-            path.arcMoveTo(box, 150)
-            path.arcTo(box, 150, -300)
-            start = pt(8 - 5.5 * 0.866, 8 - 5.5 * 0.5)          # where the arc begins (150 degrees)
-            path.moveTo(start)
-            path.lineTo(start + QPointF(0.2 * s, 3.0 * s))
-            path.moveTo(start)
-            path.lineTo(start + QPointF(2.9 * s, 0.6 * s))
-            path.moveTo(pt(8, 5))
-            path.lineTo(pt(8, 8))
-            path.lineTo(pt(10.3, 9.6))
-        elif self.shape == "help":
-            p.drawEllipse(QRectF(pt(2, 2), pt(14, 14)))
-            path.moveTo(pt(6.2, 6.4))
-            path.cubicTo(pt(6.2, 4.2), pt(9.8, 4.2), pt(9.8, 6.4))
-            path.cubicTo(pt(9.8, 7.8), pt(8, 8), pt(8, 9.6))
-            p.drawPath(path)
-            p.setBrush(color)
-            p.setPen(Qt.PenStyle.NoPen)
-            p.drawEllipse(pt(8, 11.8), 0.95 * s, 0.95 * s)
-            return
-        p.drawPath(path)
+        symbols.draw(painter, QRectF(rect), self.shape, self._color(mode, state))
 
 
 class CloudBadgeEngine(_PaintedEngine):
@@ -561,23 +466,23 @@ class IconProvider:
 
     # -- toolbar / menu icons ------------------------------------------------------
     def view_mode(self, mode: str) -> QIcon:
-        """Icon for a view mode: the icon theme's, or a simple drawn one."""
+        """Icon for a view mode ("view-<mode>" in ui/symbols.py)."""
         theme_names = {"icons": "view-list-icons", "list": "view-list-text",
                        "details": "view-list-details", "tree": "view-list-tree"}
-        icon = QIcon.fromTheme(theme_names.get(mode, ""))
-        return icon if not icon.isNull() else QIcon(ViewModeIconEngine(mode))
+        shape = f"view-{mode}" if symbols.exists(f"view-{mode}") else "view-details"
+        return self.symbol(shape, theme_names.get(mode, ""))
 
-    # -- toolbar / menu icons (continued) -------------------------------------------
     def symbol(self, shape: str, theme_name: str = "", fallback: Optional[QStyle.StandardPixmap] = None,
                force: bool = False, tint: str = "fg") -> QIcon:
-        """A line icon in the theme's colours (see SymbolIconEngine); the desktop's
-        ``theme_name`` icon in the "system" theme unless ``force``.
-        shape: back|forward|up|refresh|help|search|rename. tint: "fg" or "accent"."""
-        key = f"symbol:{shape}:{force}:{tint}"
+        """A line icon from ui/symbols.py in the theme's colours (see SymbolIconEngine).
+        ``theme_name`` / ``fallback``: the desktop icon to use instead when Settings ->
+        Appearance -> Icons asks for the desktop's icon theme (never with ``force``).
+        ``tint``: the palette colour to draw with ("fg" or "accent")."""
+        key = f"symbol:{shape}:{theme_name}:{force}:{tint}"
         icon = self._special.get(key)
         if icon is None:
-            native = QIcon() if force else self.action(theme_name, fallback)
-            icon = self._special[key] = QIcon(SymbolIconEngine(self.ctx, shape, native, tint))
+            native = QIcon() if force else self.action(theme_name, fallback) if (theme_name or fallback) else QIcon()
+            icon = self._special[key] = QIcon(SymbolIconEngine(self.ctx, shape, native, tint, force))
         return icon
 
     def action(self, theme_name: str, fallback: Optional[QStyle.StandardPixmap] = None) -> QIcon:

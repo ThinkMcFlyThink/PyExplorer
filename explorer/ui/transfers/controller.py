@@ -3,7 +3,7 @@ TransferUI - where the transfer panel lives, and keeping everything that
 shows progress up to date.
 
 * ONE TransferPanel for the whole app, shown in a pop-up window (default) or
-  in a Transfers tab (Preferences -> Transfers -> "Show transfers in"); the
+  in a Transfers tab (Settings -> Transfers -> "Show transfers in"); the
   panel's button moves it between the two at any time.
 * Shows itself when a transfer starts (TRANSFERS_CHANGED from the engine).
 * While anything runs, a timer refreshes the panel, the tab's progress

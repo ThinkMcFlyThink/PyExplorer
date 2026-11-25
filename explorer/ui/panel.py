@@ -15,8 +15,8 @@ from __future__ import annotations
 from typing import List, Optional
 
 from PySide6.QtCore import QEvent, QMimeData, QPointF, QRect, Qt
-from PySide6.QtGui import QColor, QDrag, QFont, QMouseEvent, QPainter
-from PySide6.QtWidgets import QApplication, QFrame, QMenu, QTabBar, QToolButton, QVBoxLayout
+from PySide6.QtGui import QColor, QDrag, QMouseEvent, QPainter
+from PySide6.QtWidgets import QFrame, QMenu, QTabBar, QToolButton, QVBoxLayout
 
 from ..core.events import Topics
 from ..core.platform_info import home
@@ -168,6 +168,7 @@ class FilePanel(QFrame):
         super().__init__()
         self.setObjectName("PanelFrame")
         self.setProperty("active", False)
+        self.setProperty("marked", False)
         self.ctx = ctx
         self.area = area
         layout = QVBoxLayout(self)
@@ -175,29 +176,15 @@ class FilePanel(QFrame):
         self.tab_bar = TabBar(self)
         self.new_tab_button = plus = QToolButton(self, autoRaise=True, toolTip="New tab (Ctrl+T)")
         plus.setObjectName("NewTabButton")
-        icon = ctx.icons.action("list-add")           # icon theme's "+", else a plain "+" text
-        if icon.isNull():
-            plus.setText("+")
-        else:
-            plus.setIcon(icon)
+        plus.setIcon(ctx.icons.symbol("plus", "list-add"))
         plus.clicked.connect(lambda: self.open_tab(None, activate=True))
         self.tab_widget = TabContainer(self.tab_bar, plus, self)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self._on_current_changed)
         layout.addWidget(self.tab_widget)
         self._plus = plus
-        self._style_plus()
-        unsub = ctx.bus.subscribe(Topics.THEME_CHANGED, lambda **_: self._style_plus())
+        unsub = ctx.bus.subscribe(Topics.THEME_CHANGED, lambda **_: self.tab_widget.fit_plus_button())
         self.destroyed.connect(lambda *_: unsub())
-
-    def _style_plus(self) -> None:
-        """A text "+" (no icon theme) is drawn a bit larger than the interface font.
-        Recomputed on every theme/font change, so it follows the chosen font."""
-        if self._plus.icon().isNull():
-            font = QFont(QApplication.font())
-            font.setPointSizeF(font.pointSizeF() * 1.35)
-            self._plus.setFont(font)
-        self.tab_widget.fit_plus_button()
 
     # -- queries --------------------------------------------------------------
     @property
@@ -215,20 +202,25 @@ class FilePanel(QFrame):
     def is_active_panel(self) -> bool:
         return self.area.active_panel is self
 
-    def set_highlight(self, on: bool) -> None:
-        """Accent line on the active panel (only shown in split mode)."""
-        if self.property("active") != on:
-            self.setProperty("active", on)
+    def set_highlight(self, active: bool, split: bool) -> None:
+        """The active panel: its current tab gets the accent line (themes). With the
+        "system" theme, the active side of a split gets a line along its top instead."""
+        marked = active and split
+        if self.property("active") != active or self.property("marked") != marked:
+            self.setProperty("active", active)
+            self.setProperty("marked", marked)
             self.style().unpolish(self)
             self.style().polish(self)
+            self.tab_bar.update()
 
     # -- tab management --------------------------------------------------------
     def open_tab(self, path: Optional[str] = None, state: Optional[dict] = None,
                  activate: bool = True, index: Optional[int] = None) -> BrowserTab:
         if state is None:
-            if path is None:      # "new tab": same folder as the current tab (like Dolphin)
+            if path is None:      # "new tab": the current tab's folder (like Dolphin), or home (Settings -> Behaviour)
                 current = self.active_tab
-                path = current.current_folder if current and current.current_folder else home()
+                same = self.ctx.settings.get("behaviour.new_tab_folder", "current") != "home"
+                path = current.current_folder if same and current and current.current_folder else home()
             state = {"path": path}
         if utility.is_utility_state(state):
             tab = utility.create(state["utility"], self, self.ctx, state)
@@ -243,8 +235,9 @@ class FilePanel(QFrame):
 
     def _insert(self, tab: BrowserTab, index: Optional[int], activate: bool) -> None:
         tab.panel = self
-        if index is None:
-            index = self.active_index + 1 if self.tab_widget.count() else 0
+        if index is None:              # next to the current tab, or at the end (Settings -> Behaviour)
+            at_end = self.ctx.settings.get("behaviour.new_tab_position", "next") == "end"
+            index = self.tab_widget.count() if at_end or not self.tab_widget.count() else self.active_index + 1
         index = self.tab_widget.insertTab(index, tab, tab.icon, tab.title)
         self.tab_widget.setTabToolTip(index, tab.path)
         if activate or self.tab_widget.count() == 1:

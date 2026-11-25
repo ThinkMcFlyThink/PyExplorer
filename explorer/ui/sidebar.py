@@ -17,34 +17,39 @@ are rebuilt on DEVICES_CHANGED; right-click one to hide it, or drag it into
 another category to keep a permanent shortcut.
 
 Drive rows (live ones, and the user's own drive/network/cloud shortcuts) get a
-bar behind their name showing how full they are (ui/usage_bar.py, numbers from
-ctx.drive_usage); the tooltip adds "X free of Y".
+thin bar under their name showing how full they are (ui/usage_bar.py, numbers
+from ctx.drive_usage); the tooltip adds "X free of Y". Section headers have a
+little air above them (SidebarDelegate).
 """
 from __future__ import annotations
 
 from typing import Optional, Tuple
 
-from PySide6.QtCore import QMimeData, Qt
-from PySide6.QtGui import QBrush, QDrag, QFont
-from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QMenu, QStyle, QStyledItemDelegate, QToolTip,
-                               QTreeWidget, QTreeWidgetItem)
+from PySide6.QtCore import QMimeData, QSize, Qt
+from PySide6.QtGui import QBrush, QDrag, QFont, QIcon
+from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QMenu, QStyle, QStyledItemDelegate,
+                               QStyleOptionViewItem, QToolTip, QTreeWidget, QTreeWidgetItem)
 
 from ..core.events import Topics
 from ..core.categories import AUTO_SECTIONS
 from ..core.platform_info import user_dirs
 from . import dialogs
 from .models.file_model import INTERNAL_MIME, paths_from_mime
-from .usage_bar import paint_usage_bar
+from .usage_bar import ROW_EXTRA, bar_rect, paint_usage_bar, text_margin
 
 ITEM_MIME = "application/x-pyexplorer-sidebar-item"
 KIND_ROLE = Qt.ItemDataRole.UserRole          # ("cat", cat id) | ("item", item id) | ("live", "cat id\npath")
 LIVE_PREFIX = "live\n"                        # ITEM_MIME payload for a dragged live entry
 USAGE_ROLE = Qt.ItemDataRole.UserRole + 1     # path to show a "how full" bar for (drive rows only)
 DRIVE_KINDS = {"drive", "removable", "network", "cloud", "optical"}
+HEADER_GAP = 8                                # air above each section header (after the first)
 
 
-class UsageDelegate(QStyledItemDelegate):
-    """Draws the drive-usage bar behind drive rows, and adds the numbers to the tooltip."""
+class SidebarDelegate(QStyledItemDelegate):
+    """Draws the sidebar's rows, with two touches:
+    * a section header (PLACES, DRIVES…) has some air above it, so the sections read as groups;
+    * a drive row has a thin "how full" bar under its name (ui/usage_bar.py), and the
+      numbers in its tooltip."""
 
     def __init__(self, sidebar: "Sidebar") -> None:
         super().__init__(sidebar)
@@ -54,18 +59,31 @@ class UsageDelegate(QStyledItemDelegate):
         path = index.data(USAGE_ROLE)
         return self.sidebar.ctx.drive_usage.get(path) if path and self.sidebar.ctx.drive_usage else None
 
+    @staticmethod
+    def _header_gap(index) -> int:
+        """Space above a section header (not the first: the sidebar's own padding is there)."""
+        return HEADER_GAP if not index.parent().isValid() and index.row() > 0 else 0
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        extra = self._header_gap(index) + (ROW_EXTRA if self._usage(index) is not None else 0)
+        return QSize(size.width(), size.height() + extra) if extra else size
+
     def paint(self, painter, option, index) -> None:
-        usage = self._usage(index)
-        if usage is None:
-            super().paint(painter, option, index)
-            return
-        palette = self.sidebar.ctx.theme.palette
-        covered = bool(option.state & (QStyle.StateFlag.State_Selected | QStyle.StateFlag.State_MouseOver))
-        if not covered:
-            paint_usage_bar(painter, option.rect, usage.fraction, palette)       # behind the text
+        gap = self._header_gap(index)
+        if gap:
+            option = QStyleOptionViewItem(option)
+            option.rect = option.rect.adjusted(0, gap, 0, 0)
         super().paint(painter, option, index)
-        if covered:                                   # the row's own background hid it: lighter, on top
-            paint_usage_bar(painter, option.rect, usage.fraction, palette, on_top=True)
+        usage = self._usage(index)
+        if usage is not None:
+            opt = QStyleOptionViewItem(option)
+            self.initStyleOption(opt, index)
+            view = self.sidebar
+            text = view.style().subElementRect(QStyle.SubElement.SE_ItemViewItemText, opt, view)
+            selected = bool(option.state & QStyle.StateFlag.State_Selected)
+            paint_usage_bar(painter, bar_rect(text, option.rect, text_margin(view.style(), view)), usage.fraction,
+                            self.sidebar.ctx.theme.palette, selected=selected)
 
     def helpEvent(self, event, view, option, index) -> bool:
         usage = self._usage(index)
@@ -92,7 +110,7 @@ class Sidebar(QTreeWidget):
         self.setDropIndicatorShown(True)
         self.setDragDropMode(QAbstractItemView.DragDropMode.DragDrop)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
-        self.setItemDelegate(UsageDelegate(self))
+        self.setItemDelegate(SidebarDelegate(self))
         self.itemClicked.connect(self._on_clicked)
         self.itemExpanded.connect(lambda item: self._on_collapse(item, False))
         self.itemCollapsed.connect(lambda item: self._on_collapse(item, True))
@@ -102,7 +120,8 @@ class Sidebar(QTreeWidget):
                         bus.subscribe(Topics.FOLDER_COLORS_CHANGED, lambda **_: self.rebuild()),
                         bus.subscribe(Topics.DEVICES_CHANGED, lambda **_: self.rebuild()),
                         bus.subscribe(Topics.ACTIVE_LOCATION_CHANGED, self._highlight),
-                        bus.subscribe(Topics.DRIVE_USAGE_CHANGED, lambda **_: self.viewport().update())]
+                        # a bar appeared or went: drive rows change height
+                        bus.subscribe(Topics.DRIVE_USAGE_CHANGED, lambda **_: self.scheduleDelayedItemsLayout())]
         self.destroyed.connect(lambda *_: [u() for u in self._unsubs])
         self._rebuilding = False
         self.rebuild()
@@ -171,6 +190,11 @@ class Sidebar(QTreeWidget):
         row.setToolTip(0, tip)
         if dev.mounted:
             row.setData(0, USAGE_ROLE, dev.path)
+        else:                                            # not mounted: a faded icon, and say so
+            icon = row.icon(0)
+            size = self.iconSize() if self.iconSize().isValid() and self.iconSize().width() > 0 else QSize(16, 16)
+            row.setIcon(0, QIcon(icon.pixmap(size, QIcon.Mode.Disabled)))
+            row.setToolTip(0, tip + "\nNot mounted - click to mount it")
         if not dev.mounted or dev.running is False:     # fstab share not mounted / sync app not running
             row.setForeground(0, QBrush(self.palette().placeholderText()))
         row.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable |
@@ -179,6 +203,9 @@ class Sidebar(QTreeWidget):
 
     def _highlight(self, path: str = "", **_) -> None:
         """Select the sidebar item matching the current folder (if any)."""
+        if not path:                                  # e.g. the Settings tab: about no folder
+            self.clearSelection()
+            return
         target = path.rstrip("/\\")
         for i in range(self.topLevelItemCount()):
             top = self.topLevelItem(i)
@@ -360,6 +387,11 @@ class Sidebar(QTreeWidget):
             path = self._item_path(item)
             menu.addAction("Open").triggered.connect(lambda: cmds.open_location(path, False))
             menu.addAction("Open in new tab").triggered.connect(lambda: cmds.open_location(path, True))
+            drive = cmds.drive_actions(path)                  # a disk: Mount, or Unmount / Eject
+            if drive:
+                menu.addSeparator()
+                for label, fn in drive:
+                    menu.addAction(label).triggered.connect(lambda _=False, f=fn: f())
             menu.addSeparator()
             keep = menu.addMenu("Keep a shortcut in")
             for cat in cats.all():

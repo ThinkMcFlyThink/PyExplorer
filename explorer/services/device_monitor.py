@@ -130,16 +130,23 @@ class DeviceMonitor:
 
 
 def describe_changes(old: List[Device], new: List[Device]) -> Optional[str]:
-    """A short status-bar message: "Connected: OneDrive (rclone)" / "Removed: USB stick"."""
+    """A short status-bar message: "Connected: OneDrive (rclone)" / "Removed: USB stick" /
+    "Mounted: Data" / "Unmounted: Data" / "Plugged in (not mounted): USB stick"."""
     before = {d.path: d for d in old if d.mounted}
     after = {d.path: d for d in new if d.mounted}
+    idle_before = {d.source for d in old if not d.mounted and d.source}      # disks there, not mounted
+    idle_after = {d.source for d in new if not d.mounted and d.source}
+    known_before = idle_before | {d.source for d in old if d.source}
     added = [d for p, d in after.items() if p not in before]
     removed = [d for p, d in before.items() if p not in after]
-    parts = []
-    if added:
-        parts.append("Connected: " + ", ".join(_name(d) for d in added[:3]) + ("…" if len(added) > 3 else ""))
-    if removed:
-        parts.append("Removed: " + ", ".join(_name(d) for d in removed[:3]) + ("…" if len(removed) > 3 else ""))
+    plugged = [d for d in new if not d.mounted and d.source.startswith("/dev/") and d.source not in known_before]
+    groups = [("Mounted", [d for d in added if d.source and d.source in idle_before]),
+              ("Connected", [d for d in added if not (d.source and d.source in idle_before)]),
+              ("Unmounted", [d for d in removed if d.source and d.source in idle_after]),
+              ("Removed", [d for d in removed if not (d.source and d.source in idle_after)]),
+              ("Plugged in (not mounted)", plugged)]
+    parts = [f"{word}: " + ", ".join(_name(d) for d in devs[:3]) + ("…" if len(devs) > 3 else "")
+             for word, devs in groups if devs]
     return "   ".join(parts) or None
 
 

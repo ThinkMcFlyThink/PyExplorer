@@ -35,7 +35,6 @@ class _ColumnsMixin:
         header.setSortIndicatorShown(True)
         header.setStretchLastSection(True)
         header.setHighlightSections(False)
-        header.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
         bold = QFont()                  # ONLY "bold" is set: typeface + size still follow the app font
         bold.setBold(True)
         header.setFont(bold)
@@ -111,7 +110,7 @@ class DetailsView(_ColumnsMixin, ViewBehaviour, QTableView):
         self.setWordWrap(False)
         self.setCornerButtonEnabled(False)
         self.setTabKeyNavigation(False)
-        self.setAlternatingRowColors(True)
+        self.setAlternatingRowColors(bool(ctx.settings.get("view.alternate_rows", True)))
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setTextElideMode(Qt.TextElideMode.ElideMiddle)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
@@ -132,7 +131,7 @@ class DetailsView(_ColumnsMixin, ViewBehaviour, QTableView):
     def apply_zoom(self) -> None:
         super().apply_zoom()
         line = QFontMetrics(self.font()).height()
-        self.verticalHeader().setDefaultSectionSize(max(self.icon_px + 6, line + 8))
+        self.verticalHeader().setDefaultSectionSize(max(self.icon_px + 6, line + 8) + self.extra_row_space())
 
     def moveCursor(self, action, modifiers):
         """Left/Right don't wander between columns (a row is one item), and
@@ -154,6 +153,7 @@ class TreeView(_ColumnsMixin, ViewBehaviour, QTreeView):
     def __init__(self, ctx, host, zoom: int = 1, parent=None) -> None:
         QTreeView.__init__(self, parent)
         self.setup_behaviour(ctx, host, zoom)
+        self.setAlternatingRowColors(bool(ctx.settings.get("view.alternate_rows", True)))
         self.setUniformRowHeights(True)          # big speed-up for big folders
         self.setAllColumnsShowFocus(True)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)

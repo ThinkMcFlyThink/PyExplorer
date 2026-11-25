@@ -18,6 +18,7 @@ from typing import List
 
 from . import APP_NAME, APP_VERSION
 from .context import AppContext
+from .core import formatting
 from .core.categories import Categories
 from .core.clipboard import FileClipboard
 from .core.connections import Connections
@@ -119,6 +120,7 @@ def build_context(app) -> AppContext:
     # -- core ----------------------------------------------------------------
     ctx.bus = EventBus()
     ctx.settings = Settings(JsonStore(config_file("settings.json")), ctx.bus)
+    formatting.configure(ctx.settings.get("view.size_units", "binary"), ctx.settings.get("view.date_format", "relative"))
     ctx.dispatcher = QtDispatcher()
     ctx.runner = TaskRunner(ctx.dispatcher)
     ctx.jobs = JobManager(ctx.dispatcher, ctx.bus)
@@ -231,6 +233,14 @@ def build_context(app) -> AppContext:
     def on_setting(key, value=None):
         if key == "behaviour.watch_folders":
             ctx.watcher.enabled = bool(value)
+        elif key == "behaviour.watch_interval_ms":
+            ctx.watcher.interval_ms = max(250, int(value or 1500))
+        elif key in ("view.date_format", "view.size_units"):
+            formatting.configure(ctx.settings.get("view.size_units", "binary"),
+                                 ctx.settings.get("view.date_format", "relative"))
+            ctx.bus.publish(Topics.FORMAT_CHANGED)
+        elif key == "appearance.system_icons":
+            ctx.icons.clear()                            # file icons (and their cloud badges) are cached
         elif key == "appearance.drive_usage":
             ctx.drive_usage.enabled = bool(value)
             ctx.bus.publish(Topics.DRIVE_USAGE_CHANGED, path="")
@@ -271,6 +281,10 @@ def run(argv: List[str]) -> int:
     session = ctx.session.load()
     if session:
         ctx.closed_tabs = list(session.get("closed_tabs") or [])
+        if not ctx.settings.get("behaviour.restore_session", True):
+            # Start fresh in the home folder - last time's tabs can still be reopened (Ctrl+Shift+T).
+            ctx.closed_tabs += [t for p in session.get("panels") or [] for t in p.get("tabs") or []]
+            session = None
     main.restore(session)
     for arg in argv:                                    # paths given on the command line
         if os.path.exists(arg) or "://" in arg:

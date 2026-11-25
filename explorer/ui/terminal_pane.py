@@ -42,9 +42,11 @@ class TerminalPane(QWidget):
         row.addWidget(self.title, 1)
         SP = QStyle.StandardPixmap
         for text, icon, tip, slot in (
-                ("Clear", ctx.icons.action("edit-clear", SP.SP_DialogResetButton), "Clear the screen", self._clear),
-                ("Restart", ctx.icons.action("view-refresh", SP.SP_BrowserReload), "Restart the shell", self.restart),
-                ("External", ctx.icons.action("utilities-terminal", SP.SP_DesktopIcon),
+                ("Clear", ctx.icons.symbol("eraser", "edit-clear", SP.SP_DialogResetButton), "Clear the screen",
+                 self._clear),
+                ("Restart", ctx.icons.symbol("refresh", "view-refresh", SP.SP_BrowserReload), "Restart the shell",
+                 self.restart),
+                ("External", ctx.icons.symbol("external", "utilities-terminal", SP.SP_DesktopIcon),
                  "Open your system terminal here", self._external)):
             b = QToolButton(bar, text=text, toolTip=tip, autoRaise=True)
             b.setIcon(icon)

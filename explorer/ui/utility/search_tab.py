@@ -27,7 +27,7 @@ from datetime import datetime
 from operator import attrgetter
 from typing import List, Optional
 
-from PySide6.QtCore import QDate, QDateTime, QEvent, QObject, Qt, QTime, QTimer
+from PySide6.QtCore import QDate, QDateTime, QEvent, QObject, QSize, Qt, QTime, QTimer
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QFileDialog, QFrame,
                                QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMenu, QPushButton, QToolButton,
                                QVBoxLayout, QWidget)
@@ -126,6 +126,7 @@ class SearchTab(UtilityTab):
             bus.subscribe(Topics.INDEX_UPDATED, self._on_index_updated),
             bus.subscribe(Topics.FOLDER_COLORS_CHANGED, lambda **_: self._refresh_look()),
             bus.subscribe(Topics.CLIPBOARD_CHANGED, lambda **_: self._refresh_look()),
+            bus.subscribe(Topics.FORMAT_CHANGED, lambda **_: self._refresh_look()),
         ]
         self._restoring = False
         self.ensure_view()
@@ -167,7 +168,7 @@ class SearchTab(UtilityTab):
         look.addWidget(self.add_drive_btn)
         look.addStretch(1)
         self.whole_cb = QCheckBox("Whole computer", self, toolTip="Every local drive (network drives too if "
-                                  "allowed in Preferences → Search)")
+                                  "allowed in Settings → Search)")
         self.whole_cb.toggled.connect(self._on_whole_toggled)
         look.addWidget(self.whole_cb)
         grid.addLayout(look, 0, 1, 1, 4)
@@ -215,8 +216,11 @@ class SearchTab(UtilityTab):
         # -- Filters (fold away) -----------------------------------------------------------
         # They live on the same grid as Look in / Name / Contains, so every label lines up:
         #   col 0 label | col 1 field | col 2 label | col 3 field | col 4 buttons
-        self.filters_btn = QToolButton(self, text="▸ Filters", autoRaise=True, checkable=True,
+        self.filters_btn = QToolButton(self, text="Filters", autoRaise=True, checkable=True, objectName="FoldButton",
                                        toolTip="Type, extensions, size, date, hidden files, excluded folders")
+        self.filters_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.filters_btn.setIcon(self.ctx.icons.symbol("chevron-right", force=True))
+        self.filters_btn.setIconSize(QSize(12, 12))
         self.filters_btn.toggled.connect(self._show_filters)
         grid.addWidget(self.filters_btn, 3, 0)
         self.filter_summary = QLabel("", self, objectName="Dim")
@@ -225,8 +229,9 @@ class SearchTab(UtilityTab):
         self.kind_combo = self._combo(KIND_CHOICES)
         self.ext_edit = QLineEdit(self, placeholderText="e.g. jpg, png, pdf", clearButtonEnabled=True)
         self.ext_edit.textChanged.connect(self._schedule)
-        self.exclude_edit = QLineEdit(self, placeholderText="folders to skip, e.g. node_modules, .git",
-                                      clearButtonEnabled=True)
+        # (A short hint that fits the field; a wider field would squeeze the sidebar.)
+        self.exclude_edit = QLineEdit(self, placeholderText="node_modules, .git", clearButtonEnabled=True,
+                                      toolTip="Folders to skip, by name - separate them with commas")
         self.exclude_edit.textChanged.connect(self._schedule)
 
         self.size_combo = self._combo(SIZE_CHOICES)
@@ -260,7 +265,7 @@ class SearchTab(UtilityTab):
             (self._section("Extensions"), 5, 0), (self.ext_edit, 5, 1),
             (right_label("Modified"), 5, 2), (row_of(self.date_combo, self.date_a, self.date_and, self.date_b), 5, 3),
             (self._section("Exclude"), 6, 0), (self.exclude_edit, 6, 1),
-            (row_of(self.hidden_cb), 6, 2, 1, 2), (reset, 6, 4),
+            (row_of(self.hidden_cb), 6, 2, 1, 2), (reset, 6, 4, Qt.AlignmentFlag.AlignRight),
         ]
         for widget, *where in self._filter_widgets:
             grid.addWidget(widget, *where)
@@ -274,11 +279,13 @@ class SearchTab(UtilityTab):
         self.view_slot = QVBoxLayout()
         self.view_slot.setContentsMargins(0, 0, 0, 0)
         body.addLayout(self.view_slot, 1)
-        footer = QFrame(self, objectName="UtilityFooter")
+        # The result count etc. - shown here only when the status bar (which says the same) is hidden.
+        self.footer = footer = QFrame(self, objectName="UtilityFooter")
         frow = QHBoxLayout(footer)
         frow.setContentsMargins(12, 3, 12, 3)
         self.footer_label = QLabel("", footer, objectName="Dim")
         frow.addWidget(self.footer_label, 1)
+        footer.setVisible(not self.ctx.settings.get("appearance.show_statusbar", True))
         body.addWidget(footer)
 
     def _section(self, text: str, indent: bool = False) -> QLabel:
@@ -499,7 +506,7 @@ class SearchTab(UtilityTab):
     def _show_filters(self, show: bool) -> None:
         for widget, *_ in self._filter_widgets:
             widget.setVisible(show)
-        self.filters_btn.setText(("▾" if show else "▸") + " Filters")
+        self.filters_btn.setIcon(self.ctx.icons.symbol("chevron-down" if show else "chevron-right", force=True))
         self._update_filter_inputs()
 
     def _filters_active(self, spec: SearchSpec) -> bool:
@@ -859,6 +866,10 @@ class SearchTab(UtilityTab):
             self._update_columns(self.read_spec())
         elif key in ("view.thumbnails", "view.list_cell_width") and self.view is not None:
             self.view.apply_zoom()
+        elif key == "appearance.show_statusbar":
+            self.footer.setVisible(not value)
+        elif key == "view.alternate_rows" and self.view is not None and self.view_mode in ("details", "tree"):
+            self.view.setAlternatingRowColors(bool(value))
 
     def _on_theme(self) -> None:
         super()._on_theme()

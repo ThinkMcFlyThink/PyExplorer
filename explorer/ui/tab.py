@@ -111,6 +111,7 @@ class BrowserTab(QWidget):
             bus.subscribe(Topics.CLIPBOARD_CHANGED, lambda **_: self._refresh_look()),
             bus.subscribe(Topics.DEVICES_CHANGED, self._on_devices_changed),
             bus.subscribe(Topics.DRIVE_USAGE_CHANGED, self._on_drive_usage),
+            bus.subscribe(Topics.FORMAT_CHANGED, lambda **_: (self._refresh_look(), self._publish_selection())),
         ]
         self.breadcrumb.set_path(self.path)
         self.ensure_view()
@@ -126,17 +127,26 @@ class BrowserTab(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
+        # Two rows on one grid: the filter field sits exactly under the address bar,
+        # and its close button under the search button.
+        #   [← → ↑ ↻] [ / › home › me ›          ] [⌕]
+        #      Filter [ type to show only…       ] [×]
         nav = QFrame(self, objectName="NavBar")
         row = QHBoxLayout(nav)
         row.setContentsMargins(4, 4, 4, 4)
         row.setSpacing(2)
+        self.nav_buttons = QWidget(nav)
+        brow = QHBoxLayout(self.nav_buttons)
+        brow.setContentsMargins(0, 0, 0, 0)
+        brow.setSpacing(2)
         self.btn_back = _tool_button(icons.symbol("back", "go-previous", SP.SP_ArrowBack), "Back (Alt+Left)", self.go_back, nav)
         self.btn_fwd = _tool_button(icons.symbol("forward", "go-next", SP.SP_ArrowForward), "Forward (Alt+Right)", self.go_forward, nav)
         self.btn_up = _tool_button(icons.symbol("up", "go-up", SP.SP_ArrowUp), "Up (Alt+Up)", self.go_up, nav)
         btn_refresh = _tool_button(icons.symbol("refresh", "view-refresh", SP.SP_BrowserReload), "Refresh (F5)",
                                    lambda: self.refresh(), nav)
         for b in (self.btn_back, self.btn_fwd, self.btn_up, btn_refresh):
-            row.addWidget(b)
+            brow.addWidget(b)
+        row.addWidget(self.nav_buttons)
         self.breadcrumb = BreadcrumbBar(self.ctx, self._on_crumb, nav)
         row.addWidget(self.breadcrumb, 1)
         # Searching happens in the Search tab (ui/utility/search_tab.py).
@@ -148,16 +158,20 @@ class BrowserTab(QWidget):
 
         self.filter_bar = QFrame(self, objectName="FilterBar")
         frow = QHBoxLayout(self.filter_bar)
-        frow.setContentsMargins(8, 3, 4, 3)
-        frow.addWidget(QLabel("Filter:", self.filter_bar))
+        frow.setContentsMargins(4, 0, 4, 4)
+        frow.setSpacing(2)
+        self.filter_label = QLabel("Filter", self.filter_bar, objectName="Dim")
+        self.filter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.filter_label.setContentsMargins(0, 0, 8, 0)
+        frow.addWidget(self.filter_label)
         self.filter_edit = QLineEdit(self.filter_bar)
         self.filter_edit.setPlaceholderText("Type to show only matching items (same syntax as search)")
         self.filter_edit.textChanged.connect(self._on_filter_typed)
         self.filter_edit.returnPressed.connect(self.focus_view)
         self.filter_edit.installEventFilter(_KeyFilter(self.hide_filter, self.focus_view, self))
         frow.addWidget(self.filter_edit, 1)
-        frow.addWidget(_tool_button(icons.action("window-close", SP.SP_TitleBarCloseButton), "Close filter (Esc)",
-                                    self.hide_filter, self.filter_bar))
+        frow.addWidget(_tool_button(icons.symbol("close", "window-close", SP.SP_TitleBarCloseButton),
+                                    "Close filter (Esc)", self.hide_filter, self.filter_bar))
         self.filter_bar.hide()
         outer.addWidget(self.filter_bar)
 
@@ -268,6 +282,9 @@ class BrowserTab(QWidget):
     # Navigation
     # ======================================================================
     def navigate(self, path: str, record: bool = True, select: Optional[List[str]] = None) -> None:
+        if path.startswith("device://"):                  # a drive that isn't mounted: mount it, then come here
+            self.ctx.commands.open_unmounted(path, tab=self)
+            return
         try:
             path = self.ctx.vfs.from_user_input(path)
             path = self.ctx.vfs.resolve(path).normalize(path)
@@ -279,6 +296,7 @@ class BrowserTab(QWidget):
         else:
             self.history.current = path
         changed = path != self.path
+        was_computer = self.path.startswith("computer://")
         self.path = path
         if changed:
             if self.filter_text:
@@ -287,6 +305,8 @@ class BrowserTab(QWidget):
             if hasattr(self.view, "reset_tree"):
                 self.view.reset_tree()
             self._view_state = {}
+            if self.view is not None and was_computer != path.startswith("computer://"):
+                self.view.apply_zoom()          # the Computer view's rows have room for usage bars
         self.breadcrumb.set_path(path)
         self._select_after_load = select
         self._start_scan(new_folder=changed)
@@ -314,9 +334,11 @@ class BrowserTab(QWidget):
         if parent:
             self.navigate(parent, select=[self.path])     # re-select the folder we came from
 
-    def _on_drive_usage(self, **_) -> None:
+    def _on_drive_usage(self, path: str = "", **_) -> None:
         """The Computer view shows how full each drive is: repaint when a number arrives."""
         if self.path.startswith("computer://") and self.view is not None:
+            if not path:                        # bars switched on or off: the rows change height
+                self.view.apply_zoom()
             self.view.viewport().update()
 
     def _on_devices_changed(self, **_) -> None:
@@ -500,6 +522,8 @@ class BrowserTab(QWidget):
             self._update_columns()
         elif key in ("view.thumbnails", "view.list_cell_width") and self.view is not None:
             self.view.apply_zoom()
+        elif key == "view.alternate_rows" and self.view is not None and self.view_mode in ("details", "tree"):
+            self.view.setAlternatingRowColors(bool(value))
         elif key == "appearance.system_icons":
             self._refresh_look()
 
@@ -507,6 +531,8 @@ class BrowserTab(QWidget):
     # Instant filter
     # ======================================================================
     def show_filter(self, initial: str = "") -> None:
+        # The label is as wide as the nav buttons above it, so the field starts where the address bar does.
+        self.filter_label.setFixedWidth(self.nav_buttons.sizeHint().width())
         self.filter_bar.show()
         self.filter_edit.setFocus()
         if initial:

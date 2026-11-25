@@ -11,7 +11,7 @@ The sidebar and terminal are QDockWidgets: they can be resized, moved to
 another edge or floated, and Qt remembers their layout between sessions.
 
 This class owns very little logic: showing/hiding things, and saving the
-window + session on exit.
+window + session on exit. The toolbar is its own piece (toolbar.py).
 """
 from __future__ import annotations
 
@@ -19,15 +19,16 @@ import base64
 import logging
 
 from PySide6.QtCore import QByteArray, Qt
-from PySide6.QtWidgets import QDockWidget, QMainWindow, QSizePolicy, QToolBar, QWidget
+from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 
 from .. import APP_NAME
+from ..core.events import Topics
 from .menubar import build_menubar
 from .panel_area import PanelArea
 from .sidebar import Sidebar
 from .statusbar import StatusBar
 from .terminal_pane import TerminalPane
-from .views.registry import VIEW_TYPES
+from .toolbar import MainToolbar
 
 log = logging.getLogger(__name__)
 
@@ -76,36 +77,37 @@ class MainWindow(QMainWindow):
         self.terminal_dock.hide()
 
         self.setStatusBar(StatusBar(ctx, self))
+        self._unsubs = [ctx.bus.subscribe(Topics.ACTIVE_LOCATION_CHANGED, self._on_location)]
+        self.destroyed.connect(lambda *_: [u() for u in self._unsubs])
 
     # -- built after actions exist (they need ctx.main) --------------------------
     def build_chrome(self) -> None:
         build_menubar(self, self.ctx)
-        self._build_toolbar()
+        self.toolbar = MainToolbar(self.ctx, self)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolbar)
+        self.apply_chrome()
         self.ctx.actions.sync_checks()
 
-    def _build_toolbar(self) -> None:
-        a = self.ctx.actions.qaction
-        bar = QToolBar("Toolbar", self, objectName="MainToolbar")
-        bar.setMovable(False)
-        bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        for action_id in ["tab.new", "-"] + [f"view.{m}" for m in VIEW_TYPES] + \
-                ["-", "window.split", "window.terminal", "view.hidden", "-", "net.new"]:
-            if action_id == "-":
-                bar.addSeparator()
-            else:
-                bar.addAction(a(action_id))
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        bar.addWidget(spacer)
-        bar.addAction(a("tools.preferences"))
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, bar)
-        self.toolbar = bar
-        bar.setVisible(self.ctx.settings.get("appearance.show_toolbar", True))
-        self.statusBar().setVisible(self.ctx.settings.get("appearance.show_statusbar", True))
+    def apply_chrome(self) -> None:
+        """Show / hide the toolbar, status bar and sidebar as the settings say."""
+        s = self.ctx.settings
+        self.toolbar.setVisible(bool(s.get("appearance.show_toolbar", True)))
+        self.statusBar().setVisible(bool(s.get("appearance.show_statusbar", True)))
+        if self.isVisible():                            # (before the first show, restore() decides)
+            self.sidebar_dock.setVisible(bool(s.get("appearance.show_sidebar", True)))
+        self.ctx.actions.sync_checks()
+
+    def createPopupMenu(self):                          # noqa: N802 - right-click on the toolbar or a bar
+        return self.toolbar.context_menu(self)
 
     def on_theme_changed(self) -> None:
         for panel in self.panel_area.panels:
             panel.refresh_tab_icons()
+
+    def _on_location(self, path: str = "", tab=None, **_) -> None:
+        """The window title names the current folder (handy in the taskbar and window switcher)."""
+        title = getattr(tab, "title", "") if tab is not None else ""
+        self.setWindowTitle(f"{title} — {APP_NAME}" if title else APP_NAME)
 
     # -- terminal / sidebar ----------------------------------------------------
     @property

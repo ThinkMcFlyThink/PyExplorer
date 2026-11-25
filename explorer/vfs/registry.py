@@ -64,7 +64,7 @@ class VfsRegistry:
         scheme = scheme_of(path)
         if not scheme or (len(scheme) == 1):     # "C://" is not a scheme
             return self.local
-        if path.startswith(COMPUTER_ROOT):
+        if path.startswith(COMPUTER_ROOT) or scheme == "device":   # device:// = a drive not mounted yet
             return self.computer
         factory = self._factories.get(scheme)
         if factory is None:

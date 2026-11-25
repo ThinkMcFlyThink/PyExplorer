@@ -8,7 +8,8 @@ Keys use dots to reach into nested dictionaries, e.g.::
 
 ``DEFAULTS`` below is the complete list of settings. To add a new setting
 just add it here - old settings files automatically pick up the default
-because saved values are merged *on top of* the defaults.
+because saved values are merged *on top of* the defaults. To show it in the
+Settings tab, add one line to ``core/settings_schema.py``.
 
 Every ``set`` publishes ``Topics.SETTINGS_CHANGED`` so other parts of the
 app can react without this class knowing about them.
@@ -28,10 +29,17 @@ DEFAULTS: Dict[str, Any] = {
         "terminal_font": "",      # "" = the system's monospace font; else a monospace font name
         "font_size": 0,           # 0 = use the system font size
         "system_icons": True,     # file icons from your OS / icon theme (folders are always ours)
+        "icon_style": "line",     # toolbar/menu icons: line (PyExplorer's own, every OS) | system (icon theme)
         "show_sidebar": True,
         "show_statusbar": True,
         "show_toolbar": True,
         "drive_usage": True,      # bars showing how full each drive is (sidebar + Computer view)
+    },
+    "toolbar": {
+        # The main toolbar (ui/toolbar.py). items: [] = the default layout.
+        "items": [],
+        "style": "auto",          # auto | icons | text_beside | text_under
+        "icon_size": 18,          # 16 | 18 | 22
     },
     "view": {
         "mode": "details",        # icons | list | details | tree  (global for all tabs)
@@ -47,6 +55,9 @@ DEFAULTS: Dict[str, Any] = {
         "visible_columns": ["name", "size", "type", "modified"],
         "thumbnails": True,
         "list_cell_width": 240,
+        "alternate_rows": True,   # striped rows in Details / Tree view
+        "date_format": "relative",  # relative ("Today 14:03") or a strftime pattern, e.g. "%d/%m/%Y %H:%M"
+        "size_units": "binary",   # binary (1 KB = 1024 B) | decimal (1 kB = 1000 B) | iec (1 KiB = 1024 B)
     },
     "behaviour": {
         "single_click_open": False,
@@ -55,6 +66,9 @@ DEFAULTS: Dict[str, Any] = {
         "watch_folders": True,
         "watch_interval_ms": 1500,
         "type_to_filter": True,   # typing in a view opens the instant filter
+        "new_tab_position": "next",   # next (to the current tab) | end
+        "new_tab_folder": "current",  # a new tab opens: current (folder) | home
+        "restore_session": True,  # reopen last time's tabs at start-up (False: start in the home folder)
         "last_open_with": "",
     },
     "terminal": {
@@ -76,6 +90,7 @@ DEFAULTS: Dict[str, Any] = {
         "max_index_entries": 8_000_000,   # memory cap (about 75 bytes per entry)
         "workers": 0,             # parallel readers for NETWORK folders (0 = automatic)
         "live": True,             # search as you type
+        "max_results": 250_000,   # a search stops listing after this many results
     },
     "transfers": {
         # PyExplorer's own copy/move (services/transfer_engine.py + the transfer window).
@@ -151,3 +166,58 @@ class Settings:
 
     def as_dict(self) -> dict:
         return copy.deepcopy(self._data)
+
+    def default(self, key: str, fallback: Any = None) -> Any:
+        """The built-in default of ``key`` (``fallback`` if it has none)."""
+        node: Any = DEFAULTS
+        for part in key.split("."):
+            if not isinstance(node, dict) or part not in node:
+                return fallback
+            node = node[part]
+        return copy.deepcopy(node)
+
+    def reset_key(self, key: str) -> None:
+        self.set(key, self.default(key))
+
+    # -- the whole file (Settings -> Advanced) -------------------------------------------
+    def replace(self, data: dict, keep: tuple = ()) -> None:
+        """Swap in a whole new set of values (merged onto the defaults); keys under
+        ``keep`` stay as they are. Announces every key that changed."""
+        old = self._data
+        new = _deep_merge(DEFAULTS, data or {})
+        for section in keep:
+            if section in old:
+                new[section] = copy.deepcopy(old[section])
+        self._data = new
+        self.dirty = True
+        if self._bus:
+            for key in sorted(_changed_keys(old, new)):
+                self._bus.publish(Topics.SETTINGS_CHANGED, key=key, value=self.get(key))
+
+    def reset(self) -> None:
+        """Everything back to the defaults (keyboard shortcuts too), except the window layout."""
+        self.replace({}, keep=("window",))
+
+    def export_to(self, path: str) -> None:
+        data = self.as_dict()
+        data.pop("window", None)                    # screen-specific: not worth carrying over
+        JsonStore(path).save(data)
+
+    def import_from(self, path: str) -> None:
+        data = JsonStore(path).load(default=None)
+        if not isinstance(data, dict):
+            raise ValueError("That file doesn't contain PyExplorer settings.")
+        self.replace(data, keep=("window",))
+
+
+def _changed_keys(old: dict, new: dict, prefix: str = "") -> set:
+    """Dotted keys whose value differs between two nested dicts."""
+    out = set()
+    for key in set(old) | set(new):
+        a, b = old.get(key), new.get(key)
+        dotted = prefix + key
+        if isinstance(a, dict) and isinstance(b, dict) and key != "shortcuts":
+            out |= _changed_keys(a, b, dotted + ".")
+        elif a != b:
+            out.add(dotted)
+    return out

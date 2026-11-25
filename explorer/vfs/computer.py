@@ -35,7 +35,8 @@ class ComputerFileSystem(FileSystem):
         if self._devices is not None:
             for dev in self._devices():
                 yield FileEntry(dev.label, dev.path, ROOT, True,
-                                extra={"kind": dev.kind, "type_label": dev.type_label})
+                                extra={"kind": dev.kind, "type_label": dev.type_label,
+                                       "mounted": getattr(dev, "mounted", True)})
         else:
             for label, drive_path, kind in os_drives():
                 yield FileEntry(label, drive_path, ROOT, True,

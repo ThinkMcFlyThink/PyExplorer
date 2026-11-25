@@ -1,7 +1,7 @@
 """
 TransferEngine - PyExplorer's own copy/move (the transfer window), in the
 spirit of a simplified TeraCopy. Every paste, drop and "copy/move to other
-panel" comes here (unless Preferences -> Transfers -> engine is "simple",
+panel" comes here (unless Settings -> Transfers -> engine is "simple",
 which uses the older FileOperations.transfer).
 
     t = engine.start(["/a/photos"], "/mnt/backup", move=False)    # -> core.transfer_model.Transfer

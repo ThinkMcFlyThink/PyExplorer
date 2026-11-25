@@ -114,6 +114,7 @@ class TransferPanel(QWidget):
 
         split = QSplitter(Qt.Orientation.Vertical, self)
         split.setChildrenCollapsible(False)
+        split.setHandleWidth(1)                       # a 1px line like everywhere else (Qt keeps a 5px grab area)
         outer.addWidget(split, 1)
 
         # -- the list of transfers ------------------------------------------------
@@ -127,6 +128,8 @@ class TransferPanel(QWidget):
         h.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         for col, width in ((0, 28), (2, 70), (3, 80), (4, 110), (5, 120), (6, 110)):
             self.list.setColumnWidth(col, width)
+        for col in (2, 3, 4):                         # numbers: right-aligned, titles too
+            self.list.headerItem().setTextAlignment(col, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.list.currentItemChanged.connect(lambda cur, _: self._select_item(cur))
         split.addWidget(self.list)
 

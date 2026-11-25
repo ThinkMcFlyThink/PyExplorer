@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
 
 from ..core.platform_info import IS_LINUX, fstab_network_entries, gvfs_root, os_drives, read_mount_specs
-from . import rclone_config
+from . import block_devices, rclone_config
 from .cloud_providers import CloudProviders, CloudRoot, detect_linux, icons_for
 
 SECTIONS = ("drives", "network", "cloud")
@@ -43,7 +43,8 @@ class Device:
     mounted: bool = True            # False for /etc/fstab shares that aren't mounted yet
     running: Optional[bool] = None  # cloud sync app running? (None = not applicable)
     cloud_root: Optional[CloudRoot] = field(default=None, compare=False, repr=False)
-    source: str = ""                # rclone mounts: the remote ("onedrive:Docs"), for its quota
+    source: str = ""                # rclone mounts: the remote ("onedrive:Docs"); disks: the device (/dev/sdb1)
+    removable: bool = False         # USB sticks / disks: "Eject" powers them off after unmounting
 
     def key(self) -> Tuple:
         """Everything the UI shows - two snapshots with equal keys look identical."""
@@ -57,7 +58,15 @@ class Device:
             return f"Cloud storage ({self.provider})" if self.provider else "Cloud storage"
         if self.section == "network":
             return f"Network drive ({self.provider})" if self.provider else "Network drive"
-        return {"removable": "Removable drive", "optical": "Disc", "phone": "Phone / camera"}.get(self.kind, "Drive")
+        kind = {"removable": "Removable drive", "optical": "Disc", "phone": "Phone / camera"}.get(self.kind, "Drive")
+        return kind if self.mounted else f"{kind} (not mounted)"
+
+
+DEVICE_PREFIX = "device://"          # path of a disk that isn't mounted yet: opening it mounts it
+
+
+def is_unmounted_device(path: str) -> bool:
+    return path.startswith(DEVICE_PREFIX)
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +184,8 @@ def classify_mount(source: str, mount_point: str, fstype: str, home: str,
         if kind is None:                            # no /sys info: guess from where it is mounted
             kind = "removable" if mount_point.startswith(("/media/", "/run/media/")) else "drive"
         label = mount_point if mount_point == "/home" else name
-        return Device(label, mount_point, kind, "drives", "", f"{source} ({fstype})")
+        return Device(label, mount_point, kind, "drives", "", f"{source} ({fstype})", source=source,
+                      removable=kind in ("removable", "optical"))
 
     if _is_user_place(mount_point, home):           # mergerfs, gocryptfs, ZFS datasets in /mnt...
         return Device(name, mount_point, "drive", "drives", "", f"{source} ({fstype})")
@@ -214,7 +224,10 @@ def gvfs_devices(root: Optional[str]) -> List[Device]:
 def scan_linux(proc_mounts: str = "/proc/self/mounts", fstab: str = "/etc/fstab",
                gvfs: Optional[str] = None, home: Optional[str] = None,
                rclone_conf: Optional[str] = None, sys_class_block: str = "/sys/class/block",
-               cloud_detect: Callable[..., List[CloudRoot]] = detect_linux) -> List[Device]:
+               cloud_detect: Callable[..., List[CloudRoot]] = detect_linux,
+               volumes: Optional[Callable[[], list]] = None) -> List[Device]:
+    """``volumes()`` -> block_devices.Volume list of disks that are plugged in but not
+    mounted (scan_devices passes block_devices.unmounted_volumes; tests pass their own)."""
     home = home or os.path.expanduser("~")
     remotes = rclone_config.read_remotes(rclone_conf)
     devices = [Device("Root (/)", "/", "drive", "drives", "", "The system disk")]
@@ -238,6 +251,14 @@ def scan_linux(proc_mounts: str = "/proc/self/mounts", fstab: str = "/etc/fstab"
             devices.append(Device(f"{name} (not mounted)", entry["mountpoint"], "network", "network",
                                   NETWORK_TYPES.get(entry["fstype"], ("", ""))[1],
                                   f"{entry['spec']} - in /etc/fstab, opens when you click it", mounted=False))
+    # Disks and partitions that are there but not mounted: shown greyed, mounted when opened.
+    for vol in (volumes() if volumes is not None else []):
+        path = DEVICE_PREFIX + vol.device
+        if path not in seen:
+            seen.add(path)
+            devices.append(Device(vol.label, path, vol.kind, "drives", "",
+                                  f"{vol.device} ({vol.fstype}) - not mounted", mounted=False,
+                                  source=vol.device, removable=vol.kind in ("removable", "optical")))
     # Sync apps' folders (OneDrive client, Dropbox...). Mount points are passed
     # as "skip" so the detector never touches them.
     for root in cloud_detect(home=home, skip=[mp for _, mp, _ in specs]):
@@ -255,7 +276,7 @@ def scan_linux(proc_mounts: str = "/proc/self/mounts", fstab: str = "/etc/fstab"
 def scan_devices() -> List[Device]:
     """A snapshot of all drives, network mounts and cloud folders right now."""
     if IS_LINUX:
-        devices = scan_linux()
+        devices = scan_linux(volumes=block_devices.unmounted_volumes)
     else:
         devices = []
         for label, path, kind in os_drives():

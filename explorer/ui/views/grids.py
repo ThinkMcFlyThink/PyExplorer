@@ -94,4 +94,4 @@ class ListView(_GridBase):
     def cell_size(self) -> QSize:
         line = QFontMetrics(self.font()).lineSpacing()
         width = int(self.ctx.settings.get("view.list_cell_width", 240))
-        return QSize(width, max(self.icon_px, line) + 8)
+        return QSize(width, max(self.icon_px, line) + 8 + self.extra_row_space())

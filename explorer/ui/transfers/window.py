@@ -1,5 +1,5 @@
 """TransferWindow - the transfer panel in its own window (the default; see
-Preferences -> Transfers). Closing it only hides it: transfers keep going."""
+Settings -> Transfers). Closing it only hides it: transfers keep going."""
 from __future__ import annotations
 
 from PySide6.QtCore import QByteArray, Qt

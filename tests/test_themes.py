@@ -6,8 +6,8 @@ Tests for the colour themes.
 1. Every theme meets minimum contrast rules (readable text, visible lines,
    visible selection), checked with the WCAG contrast formula.
 2. Every theme applies without a single Qt style-sheet warning.
-3. Menus and the Preferences dialog list the themes in Dark / Light groups,
-   and choosing one in Preferences saves the theme's key.
+3. Menus and the Settings tab list the themes in Dark / Light groups,
+   and choosing one in Settings applies it and saves the theme's key.
 """
 from __future__ import annotations
 
@@ -115,22 +115,25 @@ check(ctx.settings.get("appearance.theme") == "dracula", "the chosen theme is sa
 icon = ctx.icons.symbol("back", "go-previous")
 check(not icon.pixmap(16, 16).isNull(), "the nav bar's line icons draw in a colour theme")
 
-print("theme menu and Preferences")
+print("theme menu and the Settings tab")
 from explorer.ui.menubar import _theme_items  # noqa: E402
 
 items = _theme_items()
 check(items[0] == "theme.system" and [i[0] for i in items if isinstance(i, tuple)] == ["Dark themes", "Light themes"],
       "View > Theme: System, then Dark themes / Light themes sub-menus")
 check(ctx.actions.qaction("theme.one_dark_pro").text() == "One Dark Pro", "menu entries use the themes' names")
-from explorer.ui.dialogs import PreferencesDialog  # noqa: E402
-
-dialog = PreferencesDialog(ctx.main, ctx)
-combo = dialog.widgets["appearance.theme"][1]           # (kind, widget)
-check(combo.currentData() == "dracula" and combo.currentText() == "Dracula", "Preferences shows the current theme")
-combo.setCurrentIndex(combo.findData("github_light"))
-dialog._apply()                                   # what the OK button does
+ctx.commands.open_settings("appearance")
+spin(0.2)
+settings_tab = ctx.commands.active_tab()
+settings_tab.build_all()                          # (pages are built when first shown)
+row = settings_tab.rows["appearance.theme"]
+combo = row.editor.widget
+check(combo.currentData() == "dracula" and combo.currentText() == "Dracula", "Settings shows the current theme")
+check(combo.findText("Dark themes") >= 0 and combo.findText("Light themes") >= 0, "...in Dark / Light groups")
+row.commit("github_light")                        # what choosing it in the drop-down does
 spin(0.1)
-check(ctx.theme.name == "github_light", "choosing a theme in Preferences applies it")
+check(ctx.theme.name == "github_light", "choosing a theme in Settings applies it straight away")
+check(row.editor.get() == "github_light", "...and the drop-down follows")
 print("fonts")
 from explorer.ui.font_picker import installed_families  # noqa: E402
 from PySide6.QtGui import QFont, QFontDatabase  # noqa: E402
@@ -142,13 +145,10 @@ check(all(QFontDatabase.isFixedPitch(f) for f in mono), "the terminal list only 
 native = QFont(app.font()).family()
 pick = next((f for f in families if f != native and QFontDatabase.WritingSystem.Latin in QFontDatabase.writingSystems(f)
              and not QFontDatabase.isFixedPitch(f)), families[0])
-dialog = PreferencesDialog(ctx.main, ctx)
-dialog.widgets["appearance.font_family"][1].setCurrentIndex(dialog.widgets["appearance.font_family"][1].findData(pick))
-dialog.widgets["appearance.font_size"][1].setValue(13)
+settings_tab.rows["appearance.font_family"].commit(pick)
+settings_tab.rows["appearance.font_size"].commit(13)
 if mono:
-    dialog.widgets["appearance.terminal_font"][1].setCurrentIndex(
-        dialog.widgets["appearance.terminal_font"][1].findData(mono[-1]))
-dialog._apply()
+    settings_tab.rows["appearance.terminal_font"].commit(mono[-1])
 spin(0.2)
 check(app.font().family() == pick and app.font().pointSize() == 13, f"the interface font is now {pick} 13pt")
 header = ctx.commands.active_tab().view.horizontalHeader() if hasattr(ctx.commands.active_tab().view,

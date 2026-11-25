@@ -41,7 +41,9 @@ class _Crumbs(QWidget):
         self._first = 0
 
     def sizeHint(self) -> QSize:
-        return QSize(200, QFontMetrics(self.font()).height() + 12)
+        # As tall as a text field (theme.metrics: text + 2 + 2x3 padding + 2x1 border),
+        # so the address bar and the filter field under it are the same height.
+        return QSize(200, QFontMetrics(self.font()).height() + 10)
 
     # -- layout + painting ------------------------------------------------------
     def _layout(self) -> None:
@@ -88,14 +90,14 @@ class _Crumbs(QWidget):
         from PySide6.QtGui import QColor
         p.setPen(QColor(pal["border"]))
         p.setBrush(QColor(pal["entry"]))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4)
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 5, 5)    # (= text fields' radius)
         h = self.height()
         crumbs = self.bar.crumbs
         for kind, i, x1, x2 in self._hits:
             if self._hover == (kind, i):
                 p.setPen(Qt.PenStyle.NoPen)
                 p.setBrush(QColor(pal["hover"]))
-                p.drawRoundedRect(QRectF(x1, 3, x2 - x1, h - 6), 3, 3)
+                p.drawRoundedRect(QRectF(x1, 3, x2 - x1, h - 6), 4, 4)
             rect = QRectF(x1, 0, x2 - x1, h)
             if kind == "overflow":
                 p.setPen(QColor(pal["fg_dim"]))

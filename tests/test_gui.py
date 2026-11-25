@@ -346,16 +346,19 @@ check(editor is not None and editor.selectedText() == "inner3", "F2 opens the ed
 editor.setText("edited.py")
 QTest.keyClick(editor, Qt.Key.Key_Return)
 check(spin(lambda: os.path.exists(os.path.join(f1, "edited.py"))), "pressing Enter renames the file")
-from explorer.ui.dialogs import ShortcutsDialog  # noqa: E402
-sd = ShortcutsDialog(main, ctx)
-from PySide6.QtGui import QKeySequence  # noqa: E402
-sd.editors["tab.new"].setKeySequence(QKeySequence("Ctrl+N"))
-sd._apply()
+from explorer.ui.settings.keyboard import KeyboardPage  # noqa: E402
+kp = KeyboardPage(ctx)
+kp.assign("tab.new", "Ctrl+N")
 check(ctx.actions.qaction("tab.new").shortcut().toString() == "Ctrl+N" and ctx.settings.get("shortcuts") == {"tab.new": "Ctrl+N"},
-      "shortcut editor changes and saves a shortcut")
-sd._defaults()
-sd._apply()
-check(ctx.settings.get("shortcuts") == {}, "restore defaults")
+      "Settings -> Keyboard changes and saves a shortcut")
+check("Ctrl+N" in ctx.actions.qaction("tab.new").toolTip(), "...and the tooltip shows the new keys")
+kp.assign("tab.duplicate", "Ctrl+N")
+check(ctx.actions.qaction("tab.duplicate").shortcut().toString() == "Ctrl+N" and
+      not ctx.actions.qaction("tab.new").shortcuts(), "keys another command had are MOVED (never shared)")
+kp.reset_all()
+check(ctx.settings.get("shortcuts") == {} and ctx.actions.qaction("tab.new").shortcut().toString() == "Ctrl+T",
+      "restore defaults")
+kp.deleteLater()
 
 print("folder colour")
 ctx.commands.set_folder_color([f1], "#ff0000")

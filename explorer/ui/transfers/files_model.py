@@ -97,6 +97,9 @@ class TransferFilesModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return self.COLUMNS[section]
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.TextAlignmentRole:
+            return int((Qt.AlignmentFlag.AlignRight if section == 2 else Qt.AlignmentFlag.AlignLeft) |
+                       Qt.AlignmentFlag.AlignVCenter)
         return None
 
     def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):

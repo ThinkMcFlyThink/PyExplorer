@@ -73,6 +73,8 @@ class PreviewModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return self.COLUMNS[section]
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.TextAlignmentRole:
+            return int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         return None
 
     def flags(self, index):
@@ -137,8 +139,8 @@ class CardGrid(QWidget):
         self.on_reflow = on_reflow
         scroll.viewport().installEventFilter(self)
         self.cards = cards
-        for card in cards:                           # never squash a card: scroll instead
-            card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        for card in cards:     # never squash a card (scroll instead); grow to the row's tallest card
+            card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.grid = QGridLayout(self)
         self.grid.setContentsMargins(10, 8, 10, 8)
         self.grid.setSpacing(8)
@@ -154,8 +156,8 @@ class CardGrid(QWidget):
             self.grid.removeWidget(card)
         for c in range(8):
             self.grid.setColumnStretch(c, 0)
-        for k, card in enumerate(self.cards):
-            self.grid.addWidget(card, k // columns, k % columns, Qt.AlignmentFlag.AlignTop)
+        for k, card in enumerate(self.cards):         # (no alignment: cards in a row share one height)
+            self.grid.addWidget(card, k // columns, k % columns)
         for c in range(columns):
             self.grid.setColumnStretch(c, 1)
 
@@ -245,6 +247,7 @@ class RenameTab(UtilityTab):
         # -- before / after table + rules, one above the other ---------------------------
         split = QSplitter(Qt.Orientation.Vertical, self)
         split.setChildrenCollapsible(False)
+        split.setHandleWidth(1)                      # a 1px line like everywhere else (Qt keeps a 5px grab area)
         self.model = PreviewModel(self)
         self.table = QTableView(self)
         self.table.setModel(self.model)
@@ -335,11 +338,11 @@ class RenameTab(UtilityTab):
 
     # -- rule cards ----------------------------------------------------------------------------------
     def _card(self, title: str):
-        box = QGroupBox(title, self)
+        box = QGroupBox(title, self)               # (the theme puts the title inside the card's frame)
         form = QGridLayout(box)
-        form.setContentsMargins(8, 12, 8, 8)
-        form.setHorizontalSpacing(6)
-        form.setVerticalSpacing(4)
+        form.setContentsMargins(10, 2, 10, 10)
+        form.setHorizontalSpacing(8)
+        form.setVerticalSpacing(6)
         form.setRowStretch(20, 1)                  # keep the rows together at the top
         return box, form
 

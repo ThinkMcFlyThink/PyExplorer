@@ -340,6 +340,11 @@ def build(spec: dict) -> Dict[str, str]:
     # Utility tabs (Search, Rename...): a gentle accent tint so they never look like a folder.
     p["utility_bg"] = mix(chrome, accent, 0.14 if dark else 0.10)
     p["utility_line"] = mix(p["border"], accent, 0.45)
+    # Toggle buttons that are ON (toolbar, segmented view switch): a soft accent tint.
+    p["accent_soft"] = mix(chrome, accent, 0.20 if dark else 0.14)
+    p["accent_soft_hover"] = mix(chrome, accent, 0.28 if dark else 0.20)
+    # Settings tab: cards of settings on the content colour, a shade apart.
+    p["card"] = mix(bg, fg, 0.035 if dark else 0.022)
     p["scroll"] = mix(bg, fg, 0.22 if dark else 0.2)
     p["scroll_hover"] = mix(bg, fg, 0.36 if dark else 0.32)
     p.update(_ansi(dict(spec, fg=fg, dim=dim), dark, p["terminal_bg"]))

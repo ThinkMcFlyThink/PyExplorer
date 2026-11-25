@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Optional, Tuple
 
 from PySide6.QtCore import QAbstractItemModel, QMimeData, QModelIndex, Qt, QUrl
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QIcon
 
 from ...core import cloud
 from ...core.fileinfo import FileEntry
@@ -311,6 +311,17 @@ class FileModel(QAbstractItemModel):
         reports_local = root.reports_local if root is not None else False
         return cloud.effective_state(entry.cloud, root is not None, reports_local), root
 
+    def _faded(self, icon: QIcon, kind: str) -> QIcon:
+        """The icon as the desktop draws a disabled one (drives that aren't mounted)."""
+        cache = self.__dict__.setdefault("_faded_icons", {})
+        faded = cache.get(kind)
+        if faded is None:
+            faded = QIcon()
+            for size in (16, 22, 24, 32, 48, 64, 96, 128, 256):
+                faded.addPixmap(icon.pixmap(size, size, QIcon.Mode.Disabled))
+            cache[kind] = faded
+        return faded
+
     # ==================================================================
     # Cell contents
     # ==================================================================
@@ -353,6 +364,8 @@ class FileModel(QAbstractItemModel):
             if icon is None:
                 icon = self.ctx.icons.for_entry(entry)
                 key = None
+            if entry.extra and entry.extra.get("mounted") is False:   # Computer view: a drive not mounted
+                return self._faded(icon, entry.extra.get("kind", ""))
             if state == cloud.NONE:
                 return icon
             return self.ctx.icons.with_cloud_badge(icon, key or self.ctx.icons.icon_key(entry), root, state)
@@ -367,7 +380,8 @@ class FileModel(QAbstractItemModel):
                 return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             return None
         if role == R.ForegroundRole:
-            if entry.hidden or self.ctx.clipboard.is_cut(entry.path):
+            if entry.hidden or self.ctx.clipboard.is_cut(entry.path) or \
+                    (entry.extra and entry.extra.get("mounted") is False):
                 return QColor(self.ctx.theme.palette.get("fg_dim", "#888888"))
             if col in ("size", "type", "modified", "location", "status", "match"):
                 return QColor(self.ctx.theme.palette.get("fg_dim", "#888888"))
@@ -392,8 +406,9 @@ class FileModel(QAbstractItemModel):
         if orientation == Qt.Orientation.Horizontal and 0 <= section < len(self.columns):
             if role == R.DisplayRole:
                 return COLUMN_TITLES.get(self.columns[section], self.columns[section])
-            if role == R.TextAlignmentRole:
-                return int(Qt.AlignmentFlag.AlignCenter)
+            if role == R.TextAlignmentRole:              # each title lines up with its column's text
+                return int((Qt.AlignmentFlag.AlignRight if self.columns[section] == "size" else
+                            Qt.AlignmentFlag.AlignLeft) | Qt.AlignmentFlag.AlignVCenter)
         return None
 
     def flags(self, index: QModelIndex):

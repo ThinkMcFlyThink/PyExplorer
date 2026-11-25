@@ -64,7 +64,7 @@ class PanelArea(QWidget):
         changed = panel is not self.active_panel
         self.active_panel = panel
         for p in self.panels:
-            p.set_highlight(self.is_split and p is panel)
+            p.set_highlight(p is panel, self.is_split)
         if (changed or force_event) and panel.active_tab is not None:
             tab = panel.active_tab
             self.ctx.bus.publish(Topics.ACTIVE_LOCATION_CHANGED, path=tab.path, tab=tab)

@@ -245,6 +245,7 @@ class HistoryTab(UtilityTab):
         self._busy = False
         super().__init__(panel, ctx, state)
         self._unsubs.append(ctx.bus.subscribe(Topics.HISTORY_CHANGED, lambda **_: self.reload()))
+        self._unsubs.append(ctx.bus.subscribe(Topics.FORMAT_CHANGED, lambda **_: self.tree.viewport().update()))
         self.reload()
 
     # ==================================================================
@@ -277,7 +278,9 @@ class HistoryTab(UtilityTab):
         row.addSpacing(10)
         row.addWidget(QLabel("Find", self, objectName="UtilitySection"))
         self.find_edit = QLineEdit(self, placeholderText="part of a file or folder name", clearButtonEnabled=True)
-        self.find_edit.setMaximumWidth(280)
+        self.find_edit.setMinimumWidth(self.find_edit.fontMetrics().horizontalAdvance(
+            self.find_edit.placeholderText()) + 48)          # the whole hint fits
+        self.find_edit.setMaximumWidth(360)
         self.find_edit.textChanged.connect(lambda _: self.reload())
         row.addWidget(self.find_edit)
         row.addStretch(1)

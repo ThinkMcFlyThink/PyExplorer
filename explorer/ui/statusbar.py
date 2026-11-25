@@ -18,6 +18,7 @@ class StatusBar(QStatusBar):
         super().__init__(parent)
         self.ctx = ctx
         self.setSizeGripEnabled(True)
+        self.setContentsMargins(6, 0, 2, 0)          # text lines up with the sidebar's, not the window edge
         self.info = QLabel("", self)
         self.addWidget(self.info)
         self.message = QLabel("", self, objectName="Dim")
@@ -55,6 +56,7 @@ class StatusBar(QStatusBar):
             bus.subscribe(Topics.STATUS_MESSAGE, self.show_message),
             bus.subscribe(Topics.ZOOM_CHANGED, lambda mode, level: self.sync_zoom()),
             bus.subscribe(Topics.VIEW_MODE_CHANGED, lambda mode: self.sync_zoom()),
+            bus.subscribe(Topics.FORMAT_CHANGED, lambda **_: self._on_location(self._space_for or "")),
         ]
         self.destroyed.connect(lambda *_: [u() for u in self._unsubs])
         self.sync_zoom()

@@ -98,6 +98,9 @@ def build_item_menu(ctx, tab, entries: List[FileEntry]) -> QMenu:
         _add(menu, "Open in new tab", lambda: tab.on_view_activate(dirs, True), a("tab.new").icon())
         if split:
             _add(menu, "Open in other panel", lambda: cmds.open_in_other_panel(dirs[0].path))
+    if single and single.parent == "computer://":         # Computer view: a drive -> Mount / Unmount / Eject
+        for label, fn in cmds.drive_actions(single.path):
+            _add(menu, label, fn)
     if single and not single.is_dir:
         _open_with_menu(menu, ctx, single)
     if tab.search_mode and single:
