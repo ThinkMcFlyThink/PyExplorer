@@ -7,4 +7,5 @@ smbprotocol>=1.13   # SMB / Samba / Windows shares (TrueNAS, Synology, QNAP, Win
 paramiko>=3.0       # SFTP network locations (servers over SSH)
 keyring>=24         # remembered network logins go in your system keyring (GNOME Keyring / KWallet / Windows / macOS)
 send2trash>=1.8    # most reliable "move to trash" on every OS (built-in fallbacks exist)
+pillow>=10         # Info panel: camera details (EXIF, GPS), colour profiles and DPI of photos
 pywinpty>=2.0; sys_platform == "win32"   # Windows: a full terminal (cmd/PowerShell) in the F4 pane

@@ -128,6 +128,9 @@ class Commands:
     def toggle_terminal(self) -> None:
         self.ctx.main.set_terminal_visible(not self.ctx.main.terminal_visible)
 
+    def toggle_info(self) -> None:
+        self.ctx.main.set_info_visible(not self.ctx.main.info_visible)
+
     def toggle_sidebar(self) -> None:
         self.ctx.main.set_sidebar_visible(not self.ctx.main.sidebar_visible)
 

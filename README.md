@@ -31,8 +31,13 @@ pip install -r requirements.txt
 
 **Required:** `PySide6` (the interface) and `pyte` (the terminal).
 **Optional:** `smbprotocol` for SMB/Samba shares (TrueNAS, Synology, Windows...),
-`paramiko` for SFTP, `send2trash` for the most reliable trash, and on Windows
-`pywinpty` for a full terminal. Without them everything else still works.
+`paramiko` for SFTP, `send2trash` for the most reliable trash, `pillow` for camera
+details (EXIF) in the Info panel, and on Windows `pywinpty` for a full terminal.
+Without them everything else still works.
+
+**Optional programs** for the [Info panel](#the-info-panel-altp): FFmpeg (or MediaInfo)
+for video and audio, 7-Zip for 7z/RAR/ISO archives, poppler-utils for PDFs. All are
+free and in every Linux distribution, Homebrew, winget and Chocolatey.
 
 ## Features
 
@@ -43,6 +48,7 @@ pip install -r requirements.txt
 | **Speed** | Listings, search and the filter run off the UI thread and *stream* results in. Qt's views only draw what is on screen, so 100,000-file folders and slow network shares don't freeze the window (measured worst pause ≈ 0.1–0.2 s while 100k files stream in). |
 | **Tabs** | Ctrl+T / Ctrl+W / Ctrl+Shift+T (reopen). Middle-click a folder to open it in a new tab. Drag tabs to reorder. Drag a tab down and drop it on the other panel's tab bar to move it there. |
 | **Split view (F3)** | Commander-style two panels. The current tab moves to the right. New tabs open on the side they were opened from. Shift+F5 / Shift+F6 copy / move to the other panel. F6 switches panel. |
+| **Info panel (Alt+P)** | Details about the selected item on the right, far beyond size and date: every stream of a video (codec, resolution, HDR, audio languages, subtitles, chapters) with a frame from it, book covers and series, page counts, camera EXIF, PDF pages, what is inside archives, fonts drawn in their own face, and more. Does nothing at all while closed. See [The Info panel](#the-info-panel-altp). |
 | **Terminal (F4)** | Your real shell (bash/zsh/fish; cmd/PowerShell on Windows with `pywinpty`) in a dock at the bottom, with colours and scroll-back. It `cd`s as you navigate. Ctrl+Shift+C / Ctrl+Shift+V copy/paste. |
 | **Sidebar** | Entirely user-defined categories. Add any folder, drive or network location to any category. Rename, reorder and delete categories. Drag items between them. Drag folders in from a view (or another app). F9 toggles it. **Cloud, Drives and Network are live**: they show what is synced, plugged in or mounted *right now*. See [Drives, mounts and cloud storage](#drives-mounts-and-cloud-storage). |
 | **Search (Ctrl+F)** | A **Search tab**: one or many folders/drives/shares, or the whole computer. Searches names as you type, Voidtools-Everything style, from an index: milliseconds over millions of files. Also text **inside** files, size, date, type, extensions, hidden files and excluded folders. Results are a normal file list: open, drag, copy, delete, rename. See [Search tab](#the-search-tab-ctrlf). |
@@ -311,6 +317,44 @@ inputs, scroll bars, terminal colours) is derived by the same rules for every th
 rules also check WCAG contrast: text must be readable and lines and selections visible. A
 colour that falls short is nudged just enough to pass, so every theme keeps its character.
 
+## The Info panel (Alt+P)
+
+A panel on the right with everything PyExplorer can find out about the selected item.
+Alt+P, the toolbar's ⓘ button or *View → Info panel* opens and closes it. Like the
+sidebar and terminal, you can drag it to another edge or float it.
+
+| Selected | Shown |
+|---|---|
+| **Video** | container, duration, bit rate; for every video stream the codec and profile, resolution (720p / 1080p / 4K), aspect ratio, frame rate, bit depth, **HDR10 / HDR10+ / HLG / Dolby Vision**, colour space, scan type; every audio track (codec, channels, sample rate, language, title, default/forced); subtitles; chapters. Picture: a frame from 10% in. |
+| **Audio** | tags (artist, album, track, year, genre…), then the same stream details. Picture: the embedded cover. |
+| **E-book** (EPUB, MOBI/AZW3) | title, authors, **series and number**, publisher, date, language, ISBN, subjects, DRM, description; **pages** (the print edition's page list when the book has one, otherwise an estimate from the word count), words and reading time. Picture: the cover. |
+| **Comic** (CBZ/CBR/CB7) | page count and ComicInfo.xml (series, issue, writer, artist…). Picture: the first page. |
+| **PDF** | title, author, dates, producer, PDF version, encryption, forms, page count and **paper size** (A4, Letter…). Picture: the first page. |
+| **Image** | size in pixels and megapixels, format, frames of animations, colour mode, DPI, colour profile; with Pillow, the **camera, lens, exposure, aperture, ISO, focal length, date taken and GPS position**; text embedded in PNGs. Picture: the image. |
+| **Office** (Word, Excel, PowerPoint, OpenDocument) | title, author, last edited by, dates, revision, application, macros warning; pages / words / slides / **sheet names**. Picture: the thumbnail the office app saved. |
+| **Archive** (ZIP, TAR, 7z, RAR, ISO…) | files and folders inside, unpacked size, how much it saves, method, solid, encryption, the top-level items. Wheels, JARs, `.deb` and `.rpm` packages also show their name, version and description. |
+| **Font** | family, style, version, glyph count, weight, variable-font axes, colour glyphs, embedding rights, designer and licence, and a sample drawn in the font. |
+| **Torrent** | name, size, files, pieces, trackers, private flag, info hash and a **magnet link**. |
+| **Program** (ELF, .exe/.dll, Mach-O, AppImage, Java class) | CPU, 32/64-bit, program or library, console or windowed, .NET or native, how it is linked. |
+| **Text and code** | language, encoding, line endings, lines, words, the first lines in a fixed-width font. CSV: columns, rows and header. JSON: valid or not (and where it breaks). Subtitles: number of cues and length. Files without an extension are checked to see if they are text. |
+| **Folder** | what is directly inside (folders, files, hidden), and a *Calculate size* button for the whole tree. |
+| **Several items** | how many files and folders, their size, the oldest and newest, a count per type and per extension. |
+
+Every item also gets its full dates, permissions, owner and MIME type. *SHA-256* calculates
+a checksum, the copy button puts all the details on the clipboard as text, and clicking a
+section's title folds it (remembered, so you can hide e.g. *Chapters* for good).
+
+**It is built to stay out of the way.** While the panel is closed it does nothing at all:
+no file is read and none of its code is even loaded. While it is open, the name, size and
+date appear at once; the details are read in the background after a short pause, so
+holding an arrow key through a folder of videos starts no programs, and moving on cancels
+the work for the previous file (external programs are stopped). Results are cached, so
+going back to a file is instant. Files that are only in the cloud are not read, so nothing
+is downloaded by accident, and network files show the details that can be read cheaply.
+
+Options are in *Settings → Info panel*: pictures, video frames, and how many lines of text
+to preview. To add a new kind of file, see the recipe in [Extending it](#extending-it-recipes).
+
 ## Drives, mounts and cloud storage
 
 Plug in a USB stick, run `rclone mount`, open a share in Nemo or start a sync app, and it
@@ -471,6 +515,8 @@ explorer/
     smb.py                 SMB/Samba shares (smb://)     smb_shares.py  lists a server's shares
     automount.py           mounts /etc/fstab network shares when you open them (Linux)
   services/                background work (no Qt)
+    metadata/              the Info panel's details: one provider per kind of file (registry.py, base.py,
+                           media.py, books.py, documents.py, archives.py, fonts.py, torrent.py, binary.py, text.py)
     scanner.py             streaming folder listing     walker.py   parallel tree walker
     search.py              runs searches: index -> fast name scan -> filters -> contents
     file_index.py          the compact "Everything-style" index (one big name string + arrays)
@@ -512,6 +558,7 @@ explorer/
     font_picker.py         drop-down of installed fonts (all, or monospace only), each shown in its own face
     themes.py              the 50 colour themes as data, + contrast rules (no Qt)
     thumbnails.py  system_clipboard.py
+    info_panel.py          the Info panel (Alt+P): draws what services/metadata finds; info_providers.py adds images + PDF
 tests/                     python tests/test_core.py · python tests/test_gui.py
 ```
 
@@ -542,6 +589,7 @@ Qt view draws only the visible rows.
 | A new icon | One small function decorated with `@shape("name")` in `ui/symbols.py`, drawn on a 16 × 16 grid; then `ctx.icons.symbol("name")` anywhere. |
 | A new toolbar widget | A factory in `WIDGETS` in `ui/toolbar.py` (like the search box); it appears in *Settings → Toolbar*. |
 | A new Settings page | A `Page(...)` in `core/settings_schema.py`; for more than rows of settings, a widget in `ui/settings/` named by the page's `custom` (see `tab.py`). |
+| Info for a new kind of file | Subclass `InfoProvider` in `services/metadata/base.py`: set `exts`, write `extract(src)` returning an `Info` of `Section`s (and optionally a preview: image bytes, a path, or a function run later). Add it to the list in `services/metadata/registry.py`. It runs in a worker thread and the panel draws whatever it returns. |
 | A new theme | Add a spec (about a dozen colours) to `SPECS` in `ui/themes.py`. `tests/test_themes.py` checks its contrast. |
 | A new utility tab (e.g. "Compare folders") | Subclass `ui/utility/base.UtilityTab` (build the widgets, `get_state`/`restore`) and add it to `_REGISTRY` in `ui/utility/__init__.py`. The tab bar, styling, session and Ctrl+Shift+T then work for it. |
 | A new rename rule | Add fields to `RenameRules` and a step to `new_name` in `core/rename_rules.py`, then a card in `ui/utility/rename_tab.py`. |
@@ -566,6 +614,7 @@ python tests/test_block_devices.py # unmounted drives: which partitions, names, 
 python tests/test_drive_usage.py   # drive bars: disk / rclone mount / rclone about, cache (rclone faked; --real asks yours)
 python tests/test_transfers.py     # transfer engine: verify, failures, full drive, space check, moves, pause, log
 python tests/test_history.py       # History: recording, undo of every kind, never overwriting, size budget
+python tests/test_info_panel.py    # Info panel: every provider, previews, and that it idles while closed
 python tests/test_gui.py           # the real interface, no screen needed (~70 checks)
 python tests/test_gui.py --shots   # ...and save screenshots to tests/screenshots/
 ```

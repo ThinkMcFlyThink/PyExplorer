@@ -192,6 +192,19 @@ PAGES: List[Page] = [
               "automatically. The folder is passed as the working directory.", kind="text"),
         )),
     )),
+    Page("info", "Info panel", "info", "Details about the selected item, on the right of the window (Alt+P).",
+         keywords="properties metadata details preview cover exif mediainfo ffprobe", groups=(
+        G("Info panel", (
+            S("info_panel.previews", "Pictures", "Book and album covers, image thumbnails, video frames and the first "
+              "page of PDFs.", keywords="thumbnail cover"),
+            S("info_panel.video_frames", "Frames from videos", "A picture from 10% into each video. Needs FFmpeg.",
+              keywords="poster thumbnail ffmpeg"),
+            S("info_panel.text_lines", "Text preview", "The first lines of text and code files.", kind="int",
+              minimum=0, maximum=200, step=10, suffix=" lines", special="Off"),
+         ), note="Free helper programs add more detail when installed: FFmpeg or MediaInfo (video and audio), "
+                 "7-Zip (7z, RAR, ISO…), poppler-utils (PDF) and the Python package Pillow (camera details). "
+                 "Nothing is read while the panel is closed."),
+    )),
     Page("network", "Network", "server", "Opening files on shares and servers, and the logins PyExplorer "
          "remembers.", groups=(
             G("Files on network shares", (
@@ -276,6 +289,7 @@ PAGES: List[Page] = [
 # Settings that are deliberately NOT on any page: remembered state, not preferences.
 INTERNAL = {
     "view.zoom", "view.columns", "window.geometry", "window.state", "window.split_sizes", "terminal.visible",
+    "info_panel.visible", "info_panel.collapsed",
     "behaviour.last_open_with", "transfers.window_geometry", "shortcuts", "toolbar.items",
 }
 

@@ -286,6 +286,18 @@ class ThemeManager:
                                                    width: 10px; height: 10px; }}
         QLineEdit#QuickSearch {{ min-width: 190px; max-width: 260px; }}
 
+        /* info panel (ui/info_panel.py) */
+        QWidget#InfoPanel, QScrollArea#InfoScroll, QWidget#InfoBody {{ background: {p['surface']}; border: none; }}
+        QWidget#InfoBar {{ background: {p['surface']}; border-bottom: {line}; }}
+        QLabel#InfoName {{ color: {p['fg']}; font-weight: bold; }}
+        QPushButton#InfoSection {{ border: none; border-top: {soft}; border-radius: 0; padding: 7px 0 3px 0;
+                                   margin-top: 4px; min-height: 0; text-align: left; font-weight: bold;
+                                   color: {p['fg_dim']}; background: transparent; }}
+        QPushButton#InfoSection:hover {{ color: {p['fg']}; background: transparent; }}
+        QPushButton#InfoSection:checked, QPushButton#InfoSection:pressed {{ background: transparent; }}
+        QPlainTextEdit#InfoCode {{ background: {p['bg']}; border: {soft}; border-radius: 4px; }}
+        QLabel#InfoFontSample {{ padding: 6px 0; }}
+
         /* Settings tab (ui/settings/) */
         QListWidget#SettingsNav {{ background: {p['surface']}; border: none; border-right: {line};
                                    padding: 10px 8px; outline: 0; }}

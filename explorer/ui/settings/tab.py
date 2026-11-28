@@ -160,6 +160,13 @@ class SettingsPage(QWidget):
                 if setting.key:
                     tab.rows[setting.key] = row
             layout.addWidget(card)
+            card.note_label = None
+            if group.note:                                  # a line of help under the whole group
+                note = QLabel(group.note, self, objectName="SettingHelp")
+                note.setWordWrap(True)
+                layout.addSpacing(6)
+                layout.addWidget(note)
+                card.note_label = note
             self.sections.append((label, card, rows))
         self.custom = None
         if page.custom:
@@ -193,6 +200,8 @@ class SettingsPage(QWidget):
                     shown += 1
             label.setVisible(shown > 0)
             card.setVisible(shown > 0)
+            if card.note_label is not None:
+                card.note_label.setVisible(shown > 0)
             any_shown = any_shown or shown > 0
         if self.custom is not None:
             custom_hit = self.custom.filter("" if page_hit else query)

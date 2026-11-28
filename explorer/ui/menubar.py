@@ -21,7 +21,7 @@ MENUS = [
                ("Sort by", ["sort.name", "sort.size", "sort.type", "sort.modified", "-", "view.sort_desc",
                             "view.folders_first"]),
                ("Theme", "@themes"),
-               "-", "window.sidebar", "view.drive_usage", "window.terminal", "window.split", "window.toolbar",
+               "-", "window.sidebar", "view.drive_usage", "window.terminal", "window.info", "window.split", "window.toolbar",
                "toolbar.customize", "window.statusbar",
                "window.fullscreen", "-", "view.refresh"]),
     ("&Go", ["go.back", "go.forward", "go.up", "go.home", "go.computer", "go.location", "-",

@@ -154,7 +154,8 @@ class TaskRunner:
     """
 
     POOL_SIZES = {"io": 8, "search": 4, "ops": 3, "thumb": 3, "misc": 4, "transfer": 4,
-                  "usage": 3}     # drive fill bars: kept apart, a stuck network mount may block one
+                  "usage": 3,     # drive fill bars: kept apart, a stuck network mount may block one
+                  "info": 2}      # the Info panel's details + previews (old work is cancelled, so 2 is plenty)
 
     def __init__(self, dispatcher: UIDispatcher) -> None:
         self.dispatcher = dispatcher

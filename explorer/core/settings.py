@@ -78,6 +78,14 @@ DEFAULTS: Dict[str, Any] = {
         "sync_cd": True,          # cd the terminal when you navigate
         "scrollback": 5000,
     },
+    "info_panel": {
+        # The Info panel on the right (Alt+P, ui/info_panel.py). Nothing is read while it is closed.
+        "visible": False,
+        "previews": True,         # covers, thumbnails, video frames, PDF first pages
+        "video_frames": True,     # grab a frame from 10% into each video (needs FFmpeg)
+        "text_lines": 40,         # first lines of text / code files (0 = no preview)
+        "collapsed": [],          # sections you folded ("Chapters", "Tags"...)
+    },
     "network": {
         "open_files": "stream",   # stream: hand apps a path/stream | download: copy to temp first
         "mount_shares": True,     # mount SMB shares like Nemo does, so every app can open them

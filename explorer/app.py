@@ -309,6 +309,7 @@ def run(argv: List[str]) -> int:
         ctx.devices.stop()
         ctx.search.close()
         main.terminal.shutdown()
+        main.info.shutdown()                            # stops any ffprobe / 7z it is waiting for
         ctx.dispatcher.stop()
         ctx.runner.shutdown()
         ctx.stream_server.stop()

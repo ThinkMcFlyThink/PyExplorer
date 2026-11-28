@@ -35,7 +35,7 @@ DEFAULT: List[str] = [
     "@new", SEPARATOR,
     "edit.cut", "edit.copy", "edit.paste", "edit.rename", "edit.trash", SEPARATOR,
     "@sort", "@views", "view.hidden", SEPARATOR,
-    "window.sidebar", "window.split", "window.terminal", SEPARATOR,
+    "window.sidebar", "window.split", "window.terminal", "window.info", SEPARATOR,
     "tools.rename", "tools.history", "tools.transfers",
     SPACER, "@search", "net.new", "tools.preferences",
 ]

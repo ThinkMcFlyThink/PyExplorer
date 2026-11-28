@@ -163,6 +163,8 @@ def register_all(reg: ActionRegistry, ctx) -> None:
             check=lambda: ctx.main.panel_area.is_split, repeat=False)
     reg.add("window.terminal", "Terminal", c.toggle_terminal, "F4", i("terminal", "utilities-terminal"),
             check=lambda: ctx.main.terminal_visible, repeat=False)
+    reg.add("window.info", "Info panel", c.toggle_info, "Alt+P", i("info", "dialog-information"),
+            check=lambda: ctx.main.info_visible, repeat=False)
     reg.add("panel.switch", "Switch panel", c.focus_other_panel, "F6", i("split"))
     reg.add("window.sidebar", "Sidebar", c.toggle_sidebar, "F9", i("sidebar", "sidebar-show"),
             check=lambda: ctx.main.sidebar_visible, repeat=False)

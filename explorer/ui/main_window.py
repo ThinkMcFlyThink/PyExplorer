@@ -1,14 +1,14 @@
 """
 MainWindow - lays out the pieces:
 
-    ┌ menu bar / toolbar ────────────────────────────────────────┐
-    │ sidebar  │  panel area (1 or 2 FilePanels, each with tabs)  │
-    │ (dock)   │──────────────────────────────────────────────────│
-    │          │  terminal (dock, F4)                             │
-    └ status bar ─────────────────────────────────────────────────┘
+    ┌ menu bar / toolbar ─────────────────────────────────────────────────┐
+    │ sidebar  │  panel area (1 or 2 FilePanels, each with tabs)  │ info    │
+    │ (dock)   │──────────────────────────────────────────────────│ (dock,  │
+    │          │  terminal (dock, F4)                             │  Alt+P) │
+    └ status bar ──────────────────────────────────────────────────────────┘
 
-The sidebar and terminal are QDockWidgets: they can be resized, moved to
-another edge or floated, and Qt remembers their layout between sessions.
+The sidebar, terminal and info panel are QDockWidgets: they can be resized,
+moved to another edge or floated, and Qt remembers their layout between sessions.
 
 This class owns very little logic: showing/hiding things, and saving the
 window + session on exit. The toolbar is its own piece (toolbar.py).
@@ -27,6 +27,7 @@ from .menubar import build_menubar
 from .panel_area import PanelArea
 from .sidebar import Sidebar
 from .statusbar import StatusBar
+from .info_panel import InfoPanel
 from .terminal_pane import TerminalPane
 from .toolbar import MainToolbar
 
@@ -53,6 +54,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         self.resize(1280, 800)
         self.setCorner(Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.setCorner(Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea)
         self.setDockOptions(QMainWindow.DockOption.AnimatedDocks | QMainWindow.DockOption.AllowTabbedDocks)
 
         self.panel_area = PanelArea(ctx, self)
@@ -75,6 +77,16 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.terminal_dock)
         self.resizeDocks([self.terminal_dock], [240], Qt.Orientation.Vertical)
         self.terminal_dock.hide()
+
+        self.info = InfoPanel(ctx)
+        self.info_dock = QDockWidget("Info", self, objectName="InfoDock")
+        self.info_dock.setWidget(self.info)
+        self.info_dock.setTitleBarWidget(QWidget())
+        self.info_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable |
+                                   QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.info_dock)
+        self.resizeDocks([self.info_dock], [310], Qt.Orientation.Horizontal)
+        self.info_dock.hide()
 
         self.setStatusBar(StatusBar(ctx, self))
         self._unsubs = [ctx.bus.subscribe(Topics.ACTIVE_LOCATION_CHANGED, self._on_location)]
@@ -127,6 +139,23 @@ class MainWindow(QMainWindow):
         self.ctx.actions.sync_checks()
 
     @property
+    def info_visible(self) -> bool:
+        return self.info_dock.isVisible()
+
+    def set_info_visible(self, visible: bool) -> None:
+        """While hidden, the info panel does no work at all (see ui/info_panel.py)."""
+        self.info_dock.setVisible(visible)
+        if visible:
+            self.info.on_shown()
+        else:
+            self.info.on_hidden()
+            tab = self.ctx.commands.active_tab()
+            if tab:
+                tab.focus_view()
+        self.ctx.settings.set("info_panel.visible", visible)
+        self.ctx.actions.sync_checks()
+
+    @property
     def sidebar_visible(self) -> bool:
         return self.sidebar_dock.isVisible()
 
@@ -147,6 +176,9 @@ class MainWindow(QMainWindow):
         self.terminal_dock.setVisible(False)
         if s.get("terminal.visible"):
             self.set_terminal_visible(True)
+        self.info_dock.setVisible(False)
+        if s.get("info_panel.visible"):
+            self.set_info_visible(True)
         self.ctx.actions.sync_checks()
 
     def session_state(self) -> dict:
